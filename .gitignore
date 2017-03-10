@@ -1,0 +1,8 @@
+.asv
+examples/.ipynb_checkpoints/
+doc/*.png
+__pycache__
+doc/_build
+dist/
+blotter.egg-info/
+*.pyc

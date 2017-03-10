@@ -1,0 +1,2 @@
+TRADE|{"timestamp": "2016-12-01 10:00:00", "ccy": "USD", "commission": 2.5, "instrument": "CLZ16", "price": 53.46, "quantity": 100}
+TRADE|{"timestamp": "2016-12-02 10:00:00", "ccy": "USD", "commission": 2.5, "instrument": "CLZ16", "price": 55.32, "quantity": 100}

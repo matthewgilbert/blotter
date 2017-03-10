@@ -1,0 +1,2 @@
+{"ccy": "CAD", "margin": 0.1, "multiplier": 100, "commission": 2.5, "isFX": false}|{"CL": ["CLU16", "CLZ16"]}
+{"ccy": "CAD", "margin": 0, "multiplier": 1, "commission": 2.5, "isFX": true}|{"USDCAD": ["USDCAD"]}

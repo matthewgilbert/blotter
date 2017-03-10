@@ -1,0 +1,16 @@
+include README.md
+include MANIFEST.in
+include LICENSE
+include Makefile
+include CHANGELOG
+include asv.conf.json
+
+graft examples
+prune examples/.ipynb_checkpoints
+graft doc
+prune doc/_build
+graft benchmarks
+prune benchmarks/__pycache__
+
+global-exclude *.png
+global-exclude *.pyc
