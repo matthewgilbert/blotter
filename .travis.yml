@@ -27,12 +27,13 @@ install:
   - pip install coveralls
   - pip install flake8
   - pip install asv
+  - pip install pytest-cov
   - source activate test-environment
   - python setup.py install
 
 script:
-  - make lint
-  - make test
+  - flake8 blotter
+  - pytest blotter/tests -v --cov=blotter --cov-report term-missing
 
 after_success:
   - coveralls

@@ -1,4 +1,7 @@
 # blotter: a financial blotter for Python
+[![Build Status](https://travis-ci.org/matthewgilbert/blotter.svg?branch=master)](https://travis-ci.org/matthewgilbert/blotter)
+[![Coverage Status](https://coveralls.io/repos/github/matthewgilbert/blotter/badge.svg?branch=master)](https://coveralls.io/github/matthewgilbert/blotter?branch=master)
+
 
 ## Description
 

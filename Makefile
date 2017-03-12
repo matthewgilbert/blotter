@@ -9,9 +9,6 @@ lint:
 	flake8 ./blotter
 
 test:
-	python -m unittest -v blotter.tests.test_holdings
-	python -m unittest -v blotter.tests.test_event
-	python -m unittest -v blotter.tests.test_marketdata
-	python -m unittest -v blotter.tests.test_blotter
+	pytest blotter/tests -v --cov=blotter --cov-report term-missing
 asv:
 	asv run -v

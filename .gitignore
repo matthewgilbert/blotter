@@ -6,3 +6,5 @@ doc/_build
 dist/
 blotter.egg-info/
 *.pyc
+.coverage
+.cache/
