@@ -33,7 +33,8 @@ the package is not yet available on Pypi.
 
 ## Requires
 
-- `pandas` >= 0.18.1
+- `pandas` >= 0.18
+- `numpy`
 
 For building the documentation `sphinx` is also required and performance tests
 use `asv`
