@@ -1,0 +1,791 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>API Reference &#8212; blotter 0.0.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '0.0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Tutorial on using blotter" href="tutorial.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="toctree-wrapper compound">
+</div>
+<div class="section" id="module-blotter.blotter">
+<span id="api-reference"></span><h1>API Reference<a class="headerlink" href="#module-blotter.blotter" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="blotter.blotter.Blotter">
+<em class="property">class </em><code class="descclassname">blotter.blotter.</code><code class="descname">Blotter</code><span class="sig-paren">(</span><em>prices=None</em>, <em>interest_rates=None</em>, <em>accrual_time=Timedelta('0 days 16:00:00')</em>, <em>eod_time=Timedelta('0 days 16:00:00')</em>, <em>sweep_time=Timedelta('0 days 16:00:00')</em>, <em>base_ccy='USD'</em>, <em>margin_charge=0.015</em><span class="sig-paren">)</span><a class="headerlink" href="#blotter.blotter.Blotter" title="Permalink to this definition">¶</a></dt>
+<dd><p>This is a financial blotter which is used for maintaing positions and PnL
+in conjunction with backtesting a strategy historically.
+The main purpose is for calculating historical PnL for both open and
+closed trades as well as maintaining marked to market holdings.</p>
+<p>This class maintains market pricing data for marking holdings to market as
+well as interest rate data for charging interest and margin on open
+positions. The class manages interest and margin charges based of a user
+defined time of day and also provides functionality for repatriating closed
+PnL to the user defined base currency on a daily user defined time.</p>
+<dl class="method">
+<dt id="blotter.blotter.Blotter.automatic_events">
+<code class="descname">automatic_events</code><span class="sig-paren">(</span><em>timestamp</em><span class="sig-paren">)</span><a class="headerlink" href="#blotter.blotter.Blotter.automatic_events" title="Permalink to this definition">¶</a></dt>
+<dd><p>Update the current time of the Blotter, triggering all scheduled events
+between previous clock time and new clock time such as interest
+charges, margin charges, PnL calculations and PnL sweeps. See
+create_events() for more information on the type of events.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>timestamp: pandas.Timestamp</strong></p>
+<blockquote class="last">
+<div><p>Time to update clock to and tigger internal events up until</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="blotter.blotter.Blotter.connect_market_data">
+<code class="descname">connect_market_data</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#blotter.blotter.Blotter.connect_market_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Initialize MarketData class, should be called before calling trade()</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="blotter.blotter.Blotter.create_events">
+<code class="descname">create_events</code><span class="sig-paren">(</span><em>timestamp</em>, <em>action</em><span class="sig-paren">)</span><a class="headerlink" href="#blotter.blotter.Blotter.create_events" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create internal event for updating Holdings class contained within
+Blotter instance. Manages creation of INTEREST, MARGIN, PNL and
+PNL_SWEEP events based on internal Blotter data.</p>
+<p>This method is exposed to allow users greater flexibility in calling
+internal events however by default this is automatically called through
+automatic_events() and best not called unless user understands what
+they are doing.</p>
+<p>MARGIN event charges interest in the base currency based on the margin
+required for the current open positions at a rate equal to the base
+currency interest rate + the margin_charge.</p>
+<p>INTEREST events charges interest on the outstandings cash balances in
+different currencies based on the current interest rates.</p>
+<p>PNL event calculates and saves the PNL based on current market prices
+for all open positions.</p>
+<p>PNL_SWEEP event repatriates closed PnL for non base currencies to the
+base currency based on the current FX rates.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>timestamp: pandas.Timestamp</strong></p>
+<blockquote>
+<div><p>Time to create event for</p>
+</div></blockquote>
+<p><strong>action: str</strong></p>
+<blockquote>
+<div><p>Type of event to create, supports INTEREST, MARGIN, PNL and
+PNL_SWEEP</p>
+</div></blockquote>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A list of events for being dispatched using dispatch_events()</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="blotter.blotter.Blotter.define_generic">
+<code class="descname">define_generic</code><span class="sig-paren">(</span><em>generic</em>, <em>ccy=None</em>, <em>margin=0</em>, <em>multiplier=1</em>, <em>commission=0</em>, <em>isFX=False</em><span class="sig-paren">)</span><a class="headerlink" href="#blotter.blotter.Blotter.define_generic" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define meta data for a tradeable instruments associated with a generic.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>generic: str</strong></p>
+<blockquote>
+<div><p>Name for the instrument type used for looking up meta data, e.g. we
+would define &#8216;CL&#8217; and the associated meta data for these type of
+contracts</p>
+</div></blockquote>
+<p><strong>ccy: str</strong></p>
+<blockquote>
+<div><p>Currency that contract is traded in, default is base currency of
+blotter</p>
+</div></blockquote>
+<p><strong>margin: float</strong></p>
+<blockquote>
+<div><p>Amount of margin required for contract</p>
+</div></blockquote>
+<p><strong>multiplier: int</strong></p>
+<blockquote>
+<div><p>The multiplier to multiply the price by to get the notional
+amount of the instrument</p>
+</div></blockquote>
+<p><strong>commission: float</strong></p>
+<blockquote>
+<div><p>Commission charged for trading the instrument</p>
+</div></blockquote>
+<p><strong>isFX: boolean</strong></p>
+<blockquote class="last">
+<div><p>Indicate if this instrument is an FX instrument. Affects
+whether cash balances are updated for calculating payable
+interest.</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="blotter.blotter.Blotter.dispatch_events">
+<code class="descname">dispatch_events</code><span class="sig-paren">(</span><em>events</em><span class="sig-paren">)</span><a class="headerlink" href="#blotter.blotter.Blotter.dispatch_events" title="Permalink to this definition">¶</a></dt>
+<dd><p>Update Blotter._holdings based on event. See create_events() for the
+type of events supported. This method is best not called directly
+unless user understands what is going on.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>events: list</strong></p>
+<blockquote class="last">
+<div><p>list of _Event to dispatch</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="blotter.blotter.Blotter.event_log">
+<code class="descname">event_log</code><a class="headerlink" href="#blotter.blotter.Blotter.event_log" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the event log of events which have acted on the Blotter</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="blotter.blotter.Blotter.get_holdings_value">
+<code class="descname">get_holdings_value</code><span class="sig-paren">(</span><em>timestamp</em><span class="sig-paren">)</span><a class="headerlink" href="#blotter.blotter.Blotter.get_holdings_value" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return pandas.Series of values of holdings converted to Blotter base
+currency sorted by index name. Note that for each currency for which
+instruments are traded in, FX rates must be available for the given
+timestamp in order to convert. E.g. if Blotter base ccy is USD, and an
+instrument traded is in AUD, then AUDUSD must be available in the
+prices data folder.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>timestamp: pandas.Timestamp which corresponds to the time for</strong></p>
+<p class="last"><strong>marking to market blotter holdings</strong></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="blotter.blotter.Blotter.get_instruments">
+<code class="descname">get_instruments</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#blotter.blotter.Blotter.get_instruments" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return pandas.Series of the number of instruments held.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="blotter.blotter.Blotter.map_instrument">
+<code class="descname">map_instrument</code><span class="sig-paren">(</span><em>generic</em>, <em>instrument</em><span class="sig-paren">)</span><a class="headerlink" href="#blotter.blotter.Blotter.map_instrument" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define a mapping between tradeable instruments and generics, used for
+looking up meta data on instruments. Note in the case of a single
+instrument such as a currency pair the generic and the instrument
+can be the same value.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>generic: str</strong></p>
+<blockquote>
+<div><p>Name for the instrument type used for looking up meta data, e.g. we
+would define &#8216;CL&#8217; and the associated meta data for these type of
+contracts</p>
+</div></blockquote>
+<p><strong>instrument: str</strong></p>
+<blockquote class="last">
+<div><p>Tradeable instrument name</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="blotter.blotter.Blotter.read_log">
+<code class="descname">read_log</code><span class="sig-paren">(</span><em>fp</em><span class="sig-paren">)</span><a class="headerlink" href="#blotter.blotter.Blotter.read_log" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reconstitute a Blotter object from an event log. Note that this will
+only replay all the events, meta data and market data sources will
+need to be reloaded as well.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>fp: str</strong></p>
+<blockquote class="last">
+<div><p>path to read log from</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="blotter.blotter.Blotter.read_meta">
+<code class="descname">read_meta</code><span class="sig-paren">(</span><em>fp</em><span class="sig-paren">)</span><a class="headerlink" href="#blotter.blotter.Blotter.read_meta" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reconstitute the meta data of a Blotter from a file. Reads as input
+files output by write_meta(). File formats should be of the following
+form</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>fp: str</strong></p>
+<blockquote class="last">
+<div><blockquote>
+<div><p>Path to file. File should have the following format</p>
+</div></blockquote>
+<p>{&#8220;ccy&#8221;: &#8220;CAD&#8221;, &#8220;margin&#8221;: 0.1, &#8220;multiplier&#8221;: 100, &#8220;commission&#8221;: 2.5,&#8221;isFX&#8221;: false}|{&#8220;CL&#8221;: [&#8220;CLU16&#8221;, &#8220;CLZ16&#8221;]} 
+{&#8220;ccy&#8221;: &#8220;CAD&#8221;, &#8220;margin&#8221;: 0, &#8220;multiplier&#8221;: 1, &#8220;commission&#8221;: 2.5, &#8220;isFX&#8221;: true}|{&#8220;USDCAD&#8221;: [&#8220;USDCAD&#8221;]}</p>
+<blockquote>
+<div><p>...</p>
+</div></blockquote>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="blotter.blotter.Blotter.trade">
+<code class="descname">trade</code><span class="sig-paren">(</span><em>timestamp</em>, <em>instrument</em>, <em>quantity</em>, <em>price</em><span class="sig-paren">)</span><a class="headerlink" href="#blotter.blotter.Blotter.trade" title="Permalink to this definition">¶</a></dt>
+<dd><p>Record an instrument trade in the Blotter. This will also make a
+call to automatic_events to trigger all automatic events up to the time
+of this trade.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>timestamp: pandas.Timestamp</strong></p>
+<blockquote>
+<div><p>Time of trade</p>
+</div></blockquote>
+<p><strong>instrument: str</strong></p>
+<blockquote>
+<div><p>Tradeable instrument name</p>
+</div></blockquote>
+<p><strong>quantity: int</strong></p>
+<blockquote>
+<div><p>Number of instrument traded</p>
+</div></blockquote>
+<p><strong>price: float</strong></p>
+<blockquote class="last">
+<div><p>Price of trade</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="blotter.blotter.Blotter.write_log">
+<code class="descname">write_log</code><span class="sig-paren">(</span><em>fp</em><span class="sig-paren">)</span><a class="headerlink" href="#blotter.blotter.Blotter.write_log" title="Permalink to this definition">¶</a></dt>
+<dd><p>Write log of blotter events to file. This can be used for
+reconstituting blotter.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>fp: str</strong></p>
+<blockquote class="last">
+<div><p>path to write log to</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="blotter.blotter.Blotter.write_meta">
+<code class="descname">write_meta</code><span class="sig-paren">(</span><em>fp</em><span class="sig-paren">)</span><a class="headerlink" href="#blotter.blotter.Blotter.write_meta" title="Permalink to this definition">¶</a></dt>
+<dd><p>Write meta data of associated instruments in a Blotter to a file. This
+can be used later to reconstitute a Blotter.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>fp: str</strong></p>
+<blockquote class="last">
+<div><p>path to write meta data</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="blotter.blotter.Holdings">
+<em class="property">class </em><code class="descclassname">blotter.blotter.</code><code class="descname">Holdings</code><a class="headerlink" href="#blotter.blotter.Holdings" title="Permalink to this definition">¶</a></dt>
+<dd><p>The Holdings class is designed to manage holdings data and PnL data. The
+class stores instrument level holdings data on a per currency basis and
+calculates PnL on a per currency basis given instrument prices. The class
+is primarily designed to manage these aspects from within the context
+of the Blotter class however can also provide this functionality stand
+alone.</p>
+<p>The main features of the Holdings class include:</p>
+<ul class="simple">
+<li>Store per currency per instrument holindgs</li>
+<li>Calculate per currency per instrument PnL</li>
+<li>Maintain interest payable cash balances per currency</li>
+<li>Maintain charged/payed interest per currency</li>
+<li>Provide functionality to sweep PnL from one currency to another</li>
+<li>Return historical holdings</li>
+<li>Return historical PnL</li>
+</ul>
+<p>Calculating PnL is done on a as of current holdings basis, there is no
+functionality for looking up historical holdings for calculating historic
+PnL.</p>
+<p>Note: For interest bearing instruments, when users are using the Holdings
+call standalone, users are responsible for calling charge_interest() at
+appropriate intervals and with appropriate interest rates to ensure that
+the PnL calculations are correct. This is handled by the Blotter class.</p>
+<p>All actions on the Holdings class must follow in time sequential order.</p>
+<dl class="method">
+<dt id="blotter.blotter.Holdings.charge_interest">
+<code class="descname">charge_interest</code><span class="sig-paren">(</span><em>timestamp</em>, <em>ccy</em>, <em>quantity</em><span class="sig-paren">)</span><a class="headerlink" href="#blotter.blotter.Holdings.charge_interest" title="Permalink to this definition">¶</a></dt>
+<dd><p>Update the amount of interest charged in the account of a currency.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>timestamp: pandas.Timestamp</strong></p>
+<blockquote>
+<div><p>Time of trade</p>
+</div></blockquote>
+<p><strong>ccy: str</strong></p>
+<blockquote>
+<div><p>currency of interest charge/payment</p>
+</div></blockquote>
+<p><strong>quantity: float</strong></p>
+<blockquote class="last">
+<div><p>Amount of interest</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="blotter.blotter.Holdings.get_assets">
+<code class="descname">get_assets</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#blotter.blotter.Holdings.get_assets" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the names of instruments held.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">list</p>
+<blockquote class="last">
+<div><p>Sorted list of strings of current assets which have holdings</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="blotter.blotter.Holdings.get_cash_balances">
+<code class="descname">get_cash_balances</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#blotter.blotter.Holdings.get_cash_balances" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return a pandas.Series of the cash balances for each currency</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="blotter.blotter.Holdings.get_holdings">
+<code class="descname">get_holdings</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#blotter.blotter.Holdings.get_holdings" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the current instrument holdings. This includes any multiplier
+associated with the instrument.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">dictionary</p>
+<blockquote class="last">
+<div><p>Dictionary with currencies as keys and pandas.Series as values
+where that Series contain the most recent holdings for each of the
+holdings in a given currency</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="blotter.blotter.Holdings.get_holdings_history">
+<code class="descname">get_holdings_history</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#blotter.blotter.Holdings.get_holdings_history" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the full history of holdings for each instrument traded.
+This includes any multiplier associated with the instrument.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">dictionary</p>
+<blockquote class="last">
+<div><p>Dictionary with currencies as keys and dictionary of pandas.Series
+as values where the keys of the nested dictionary are instrument
+names and the pandas.Series is a timeseries of holdings</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="blotter.blotter.Holdings.get_instrument_pnl">
+<code class="descname">get_instrument_pnl</code><span class="sig-paren">(</span><em>timestamp</em>, <em>prices=None</em>, <em>cache=True</em><span class="sig-paren">)</span><a class="headerlink" href="#blotter.blotter.Holdings.get_instrument_pnl" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculate and return pnl, closed pnl and open pnl for traded
+instruments in each currency.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>timestamp: pandas.Timestamp</strong></p>
+<blockquote>
+<div><p>Time of PnL calculation, used for caching the result</p>
+</div></blockquote>
+<p><strong>prices: pandas.Series</strong></p>
+<blockquote>
+<div><p>series of instrument prices for current holdings</p>
+</div></blockquote>
+<p><strong>cache: boolean</strong></p>
+<blockquote>
+<div><p>Cache this result for later retrieval and advance internal Holdings
+event clock</p>
+</div></blockquote>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">dictionary</p>
+<blockquote class="last">
+<div><p>Dictionary with currencies as keys and pandas.DataFrame as values
+where the DataFrame contains columns
+[&#8216;pnl&#8217;, &#8216;closed pnl&#8217;, &#8216;open pnl&#8217;] and the index is the set of
+holdings of current instruments</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="blotter.blotter.Holdings.get_instrument_pnl_history">
+<code class="descname">get_instrument_pnl_history</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#blotter.blotter.Holdings.get_instrument_pnl_history" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return open, closed and total PnL in each currency for each traded
+instrumentbased on cached values from previous calls to
+get_instrument_pnl</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">dictionary</p>
+<blockquote class="last">
+<div><p>Dictionary of dictionaries where to top level dictionary contains
+keys for each currency where there has been PnL historically and
+the nested dictionaries contain keys for each instrument and values
+which are pandas.DataFrame with columns
+[&#8216;pnl&#8217;, &#8216;closed pnl&#8217;, &#8216;open pnl&#8217;] and index of timestamps</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="blotter.blotter.Holdings.get_pnl">
+<code class="descname">get_pnl</code><span class="sig-paren">(</span><em>timestamp</em>, <em>prices=None</em>, <em>cache=True</em><span class="sig-paren">)</span><a class="headerlink" href="#blotter.blotter.Holdings.get_pnl" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculate open, closed and total pnl in each currency where instruments
+are traded based on given prices.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>timestamp: pandas.Timestamp</strong></p>
+<blockquote>
+<div><p>Time of PnL calculation</p>
+</div></blockquote>
+<p><strong>prices: pandas.Series</strong></p>
+<blockquote>
+<div><p>series of instrument prices</p>
+</div></blockquote>
+<p><strong>cache: boolean</strong></p>
+<blockquote>
+<div><p>Cache this result for later retrieval and advance internal Holdings
+event clock</p>
+</div></blockquote>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">pandas.DataFrame</p>
+<blockquote class="last">
+<div><p>DataFrame with columns [&#8216;pnl&#8217;, &#8216;closed pnl&#8217;, &#8216;open pnl&#8217;] and an
+index of currencies of instrument denominations. Note that this
+will return a row for each currency that an instrument has ever
+been traded in, even if the current PnL in the currency is all
+0&#8217;s due to sweeps.</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="blotter.blotter.Holdings.get_pnl_history">
+<code class="descname">get_pnl_history</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#blotter.blotter.Holdings.get_pnl_history" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return open, closed and total PnL in each currency where instruments
+are traded based on cached values from previous calls to
+get_instrument_pnl</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">dictionary</p>
+<blockquote class="last">
+<div><p>Dictionary of pandas.DataFrames where keys are currencies and the
+DataFrames have columns [&#8216;pnl&#8217;, &#8216;closed pnl&#8217;, &#8216;open pnl&#8217;] and
+index of timestamps</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="blotter.blotter.Holdings.record_trade">
+<code class="descname">record_trade</code><span class="sig-paren">(</span><em>timestamp</em>, <em>instrument</em>, <em>price</em>, <em>quantity</em>, <em>commission</em>, <em>ccy</em><span class="sig-paren">)</span><a class="headerlink" href="#blotter.blotter.Holdings.record_trade" title="Permalink to this definition">¶</a></dt>
+<dd><p>Record an instrument trade in Holdings. Trades must be time ordered.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>timestamp: pandas.Timestamp</strong></p>
+<blockquote>
+<div><p>Time of trade</p>
+</div></blockquote>
+<p><strong>instrument: str</strong></p>
+<blockquote>
+<div><p>Tradeable instrument name</p>
+</div></blockquote>
+<p><strong>price: float</strong></p>
+<blockquote>
+<div><p>Price of trade</p>
+</div></blockquote>
+<p><strong>quantity: int</strong></p>
+<blockquote>
+<div><p>Number of instruments traded. This should include any multiplier
+associated with the contract. E.g. for trading an ES contract,
+this has a multipler of 50, therefore 1 ES contract should
+correspond to a quantity of 50 * 1</p>
+</div></blockquote>
+<p><strong>commission: float</strong></p>
+<blockquote>
+<div><p>total commission for the trade</p>
+</div></blockquote>
+<p><strong>ccy: str</strong></p>
+<blockquote class="last">
+<div><p>currency of instrument denomination</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="blotter.blotter.Holdings.sweep_pnl">
+<code class="descname">sweep_pnl</code><span class="sig-paren">(</span><em>timestamp</em>, <em>ccy1</em>, <em>quantity1</em>, <em>ccy2</em>, <em>quantity2</em><span class="sig-paren">)</span><a class="headerlink" href="#blotter.blotter.Holdings.sweep_pnl" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert PnL from one currency to another. The user is
+responsible for ensuring that the implicit FX rates used are sensible.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>timestamp: pandas.Timestamp</strong></p>
+<blockquote>
+<div><p>Time of trade</p>
+</div></blockquote>
+<p><strong>ccy1: str</strong></p>
+<blockquote>
+<div><p>currency of first leg of sweep</p>
+</div></blockquote>
+<p><strong>quantity1: float</strong></p>
+<blockquote>
+<div><p>Amount of currency from first leg of sweep</p>
+</div></blockquote>
+<p><strong>ccy2: str</strong></p>
+<blockquote>
+<div><p>currency of second leg of sweep</p>
+</div></blockquote>
+<p><strong>quantity2: float</strong></p>
+<blockquote class="last">
+<div><p>Amount of currency from second leg of sweep</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Examples</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s1">&#39;2016-12-01T10:00:00&#39;</span><span class="p">)</span>
+<span class="go">aud = 5000</span>
+<span class="go">usd = 5000 * 0.80</span>
+<span class="go">holder.sweep_pnl(ts, &#39;AUD&#39;, -aud, &#39;USD&#39;, usd)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="blotter.blotter.Holdings.timestamp">
+<code class="descname">timestamp</code><a class="headerlink" href="#blotter.blotter.Holdings.timestamp" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the current timestamp of the Holdings</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="blotter.blotter.Holdings.update_cash">
+<code class="descname">update_cash</code><span class="sig-paren">(</span><em>timestamp</em>, <em>ccy</em>, <em>quantity</em><span class="sig-paren">)</span><a class="headerlink" href="#blotter.blotter.Holdings.update_cash" title="Permalink to this definition">¶</a></dt>
+<dd><p>Update the amount of cash in a certain type of currency, used for
+charging interest on that balance.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>timestamp: pandas.Timestamp</strong></p>
+<blockquote>
+<div><p>Time of trade</p>
+</div></blockquote>
+<p><strong>ccy: str</strong></p>
+<blockquote>
+<div><p>currency of cash balance</p>
+</div></blockquote>
+<p><strong>quantity: float</strong></p>
+<blockquote class="last">
+<div><p>Amount of cash</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h3><a href="index.html">Table Of Contents</a></h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorial on using blotter</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">API Reference</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="tutorial.html" title="previous chapter">Tutorial on using blotter</a></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/api.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Matthew Gilbert.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.5.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.9</a>
+      
+      |
+      <a href="_sources/api.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

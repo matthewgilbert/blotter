@@ -1,0 +1,190 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>About blotter &#8212; blotter 0.0.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '0.0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Tutorial on using blotter" href="tutorial.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="about-blotter">
+<h1>About blotter<a class="headerlink" href="#about-blotter" title="Permalink to this headline">¶</a></h1>
+<p>The <code class="docutils literal"><span class="pre">blotter</span></code> package aims to provide a mechanism for managing historical
+instrument level positions for FX and futures and calculating PnL for
+backtests in a manner which is decoupled from upstream trading logic and
+downstream rebalance logic.</p>
+<p><code class="docutils literal"><span class="pre">blotter</span></code> provides users with an interface to book trades, after which
+<code class="docutils literal"><span class="pre">blotter</span></code> manages margin and interest charges and allows the user to
+obtain marked to market holdings as well as open and closed PnL at future
+times. There is also functionality for specifying simple schedules for
+sweeping closed PnL in foreign currencies into the base currency.
+The two main classes for doing this are the Blotter class and the
+Holdings class.</p>
+<div class="section" id="blotter">
+<h2>Blotter<a class="headerlink" href="#blotter" title="Permalink to this headline">¶</a></h2>
+<p>The Blotter class manages all the market data for the traded instruments as
+well as instrument level meta data which includes commissions, margin
+requirements, instrument multiplier and instrument currency. In addition,
+the Blotter class allows users to define a time of day for charging interest
+based on open positions, charging margin based on open positions,
+calculating open and closed PnL and sweeping closed PnL back to the base
+currency defined by the user. The Blotter class contains a set of Holdings
+which maintains currency level instrument holdings and PnL data. A key thing to
+note about the Blotter class is that it does not support trading FX forwards.
+The functionality provided for trading FX equivalent to trading spot FX and
+rolling positions daily, thus interest rates should be chosen appropriatly
+to be representative of this.</p>
+<p>After instantiating a Blotter and defining instruments, the main methods the
+user uses to simulate a trading strategy are <code class="docutils literal"><span class="pre">trade</span></code> and
+<code class="docutils literal"><span class="pre">automatic_events</span></code>. These methods allow the user to perform actions on the
+Blotter in a time seequential manner. <code class="docutils literal"><span class="pre">trade</span></code> allows the user to trade an
+instrument and also triggers a call to <code class="docutils literal"><span class="pre">automatic_events</span></code>.
+<code class="docutils literal"><span class="pre">automatic_events</span></code> triggers daily PnL calculations, interest charges,
+margin charges and PnL repatriation to the base currency of the Blotter on a
+daily time schedule between the previous time state of the Blotter and the new
+time state.</p>
+</div>
+<div class="section" id="holdings">
+<h2>Holdings<a class="headerlink" href="#holdings" title="Permalink to this headline">¶</a></h2>
+<p>The Holdings class manages positions and PnL calculations. The class provides
+both instrument level PnL calculations and currency level PnL calculations.
+Instrument level PnL is given by</p>
+<div class="math">
+\[\begin{split}\text{Open PnL} &amp;= \text{Position} \cdot (\text{Market Price} - \text{Avg. Transacted Price}) \\
+\text{PnL} &amp;= \text{Total Sold} \cdot \text{Avg. Sell Price} -
+\text{Total Bought} \cdot \text{Avg. Purchase Price} \\
+&amp; + \text{Position} \cdot \text{Market Price} - \text{Total Commission} \\
+\text{Closed PnL} &amp;= \text{PnL} - \text{Open PnL}\end{split}\]</div>
+<p>Currency level PnL for each currency is given by</p>
+<div class="math">
+\[\begin{split}\text{Open PnL} &amp;= \sum \text{Open Instrument PnL} \\
+\text{PnL} &amp;= \sum \text{Instrument PnL} + \text{Interest} + \text{PnL Sweeps}\\
+\text{Closed PnL} &amp;= \sum \text{Closed PnL} + \text{Interest} + \text{PnL Sweeps}\\\end{split}\]</div>
+<p>One thing to note in the above calculations is that interest is attributed at
+the currency level, thus at present there is no way to get instrument level PnL
+calculations which account for interest.</p>
+<p>There is currently no support for margin netting as well as settling
+contracts.</p>
+<p>There is also a section with a simple tutorial</p>
+<div class="toctree-wrapper compound">
+</div>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorial on using blotter</a></li>
+</ul>
+</div>
+<p>as well as a section detailing the API</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API Reference</a></li>
+</ul>
+</div>
+</div>
+</div>
+<div class="section" id="installation">
+<h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h1>
+<p>Please refer to the
+<a class="reference external" href="https://github.com/matthewgilbert/blotter/blob/master/README.md">README</a>
+for installation instructions</p>
+</div>
+<div class="section" id="contributions">
+<h1>Contributions<a class="headerlink" href="#contributions" title="Permalink to this headline">¶</a></h1>
+<p>Contributions are welcome, the source repository is available
+<a class="reference external" href="https://github.com/matthewgilbert/blotter">here</a></p>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h3><a href="#">Table Of Contents</a></h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorial on using blotter</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API Reference</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="#">Documentation overview</a><ul>
+      <li>Next: <a href="tutorial.html" title="next chapter">Tutorial on using blotter</a></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/index.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Matthew Gilbert.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.5.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.9</a>
+      
+      |
+      <a href="_sources/index.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

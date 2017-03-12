@@ -1,0 +1,376 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Tutorial on using blotter &#8212; blotter 0.0.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '0.0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="API Reference" href="api.html" />
+    <link rel="prev" title="About blotter" href="index.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="toctree-wrapper compound">
+</div>
+<div class="section" id="tutorial-on-using-blotter">
+<h1>Tutorial on using blotter<a class="headerlink" href="#tutorial-on-using-blotter" title="Permalink to this headline">¶</a></h1>
+<p>This tutorial provides some simple use cases for <code class="docutils literal"><span class="pre">blotter</span></code>. To start with,
+import the library and create a <code class="docutils literal"><span class="pre">Blotter()</span></code> object</p>
+<div class="highlight-ipython"><div class="highlight"><pre><span></span><span class="gp">In [1]: </span><span class="kn">from</span> <span class="nn">blotter</span> <span class="kn">import</span> <span class="n">blotter</span>
+
+<span class="gp">In [2]: </span><span class="kn">import</span> <span class="nn">pandas</span> <span class="kn">as</span> <span class="nn">pd</span>
+
+<span class="gp">In [3]: </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+
+<span class="gp">In [4]: </span><span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="kn">as</span> <span class="nn">plt</span>
+
+<span class="gp">In [5]: </span><span class="n">pd</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">display</span><span class="o">.</span><span class="n">max_rows</span> <span class="o">=</span> <span class="mi">10</span>
+
+<span class="gp">In [6]: </span><span class="n">blt</span> <span class="o">=</span> <span class="n">blotter</span><span class="o">.</span><span class="n">Blotter</span><span class="p">(</span>
+<span class="gp">   ...: </span>           <span class="n">prices</span><span class="o">=</span><span class="s2">&quot;data/prices&quot;</span><span class="p">,</span>
+<span class="gp">   ...: </span>           <span class="n">interest_rates</span><span class="o">=</span><span class="s2">&quot;data/daily_interest_rates.csv&quot;</span><span class="p">,</span>
+<span class="gp">   ...: </span>           <span class="n">accrual_time</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">Timedelta</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;h&quot;</span><span class="p">),</span>
+<span class="gp">   ...: </span>           <span class="n">eod_time</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">Timedelta</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;h&quot;</span><span class="p">),</span>
+<span class="gp">   ...: </span>           <span class="n">sweep_time</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">Timedelta</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;h&quot;</span><span class="p">),</span>
+<span class="gp">   ...: </span>           <span class="n">base_ccy</span><span class="o">=</span><span class="s2">&quot;USD&quot;</span><span class="p">,</span>
+<span class="gp">   ...: </span>           <span class="n">margin_charge</span><span class="o">=</span><span class="mf">0.015</span>
+<span class="gp">   ...: </span>          <span class="p">)</span>
+<span class="gp">   ...: </span>
+
+<span class="gp">In [7]: </span><span class="n">blt</span><span class="o">.</span><span class="n">connect_market_data</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>In the above we provide a path to a folder of csv files for the prices of the
+instruments we intend to trade as well as a file containing interest rates
+for each of the currencies transacted in. The <code class="docutils literal"><span class="pre">accrual_time</span></code> corresponds to
+the time of day which interest and margin are accrued. The interest rates
+provided must include an entry for this time of day. <code class="docutils literal"><span class="pre">eod_time</span></code> is the time
+at which daily PnL is calculated. The csv files of prices provided must
+included a price for this time of day for each day when an instrument has an
+open position excluding weekends. Note that this includes market holidays where
+there may be no trading, thus the user is responsible for appropriately filling
+the data. <code class="docutils literal"><span class="pre">sweep_time</span></code> defines the time of day when closed PnL in
+currencies other than the base currency are repatriated to the base currency.
+Daily FX rates corresponding to the <code class="docutils literal"><span class="pre">sweep_time</span></code> must be provided in the csv
+files of prices for each currency in the non base currency, used for conversion
+to the base.</p>
+<p>Now we define the meta data for the instruments we plan to trade.</p>
+<div class="highlight-ipython"><div class="highlight"><pre><span></span><span class="gp">In [8]: </span><span class="n">blt</span><span class="o">.</span><span class="n">define_generic</span><span class="p">(</span><span class="s2">&quot;AUDUSD&quot;</span><span class="p">,</span> <span class="n">ccy</span><span class="o">=</span><span class="s2">&quot;USD&quot;</span><span class="p">,</span> <span class="n">margin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">multiplier</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+<span class="gp">   ...: </span>                       <span class="n">commission</span><span class="o">=</span><span class="mf">2.5</span><span class="p">,</span> <span class="n">isFX</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="gp">   ...: </span>
+
+<span class="gp">In [9]: </span><span class="n">blt</span><span class="o">.</span><span class="n">define_generic</span><span class="p">(</span><span class="s2">&quot;USDJPY&quot;</span><span class="p">,</span> <span class="n">ccy</span><span class="o">=</span><span class="s2">&quot;JPY&quot;</span><span class="p">,</span> <span class="n">margin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">multiplier</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+<span class="gp">   ...: </span>                       <span class="n">commission</span><span class="o">=</span><span class="mf">2.5</span><span class="p">,</span> <span class="n">isFX</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="gp">   ...: </span>
+
+<span class="gp">In [10]: </span><span class="n">blt</span><span class="o">.</span><span class="n">map_instrument</span><span class="p">(</span><span class="n">generic</span><span class="o">=</span><span class="s2">&quot;AUDUSD&quot;</span><span class="p">,</span> <span class="n">instrument</span><span class="o">=</span><span class="s2">&quot;AUDUSD&quot;</span><span class="p">)</span>
+
+<span class="gp">In [11]: </span><span class="n">blt</span><span class="o">.</span><span class="n">map_instrument</span><span class="p">(</span><span class="s2">&quot;USDJPY&quot;</span><span class="p">,</span> <span class="s2">&quot;USDJPY&quot;</span><span class="p">)</span>
+
+<span class="gp">In [12]: </span><span class="n">blt</span><span class="o">.</span><span class="n">define_generic</span><span class="p">(</span><span class="s2">&quot;CL&quot;</span><span class="p">,</span> <span class="n">ccy</span><span class="o">=</span><span class="s2">&quot;USD&quot;</span><span class="p">,</span> <span class="n">margin</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">multiplier</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+<span class="gp">   ....: </span>                      <span class="n">commission</span><span class="o">=</span><span class="mf">2.5</span><span class="p">,</span> <span class="n">isFX</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+<span class="gp">   ....: </span>
+
+<span class="gp">In [13]: </span><span class="n">blt</span><span class="o">.</span><span class="n">map_instrument</span><span class="p">(</span><span class="s2">&quot;CL&quot;</span><span class="p">,</span> <span class="s2">&quot;CLZ2008&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>We use a vary simple trading strategy which buys and holds Crude and which
+uses 5 day momentum for deciding whether to buy or sell AUDUSD and USDJPY.
+For simplicity, we will also trade at the 4:00 P.M. and use the same prices as
+used internally in the Blotter.</p>
+<div class="highlight-ipython"><div class="highlight"><pre><span></span><span class="gp">In [14]: </span><span class="n">crude</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;data/prices/CLZ2008.csv&quot;</span><span class="p">,</span> <span class="n">parse_dates</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+<span class="gp">In [15]: </span><span class="n">aud</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;data/prices/AUDUSD.csv&quot;</span><span class="p">,</span> <span class="n">parse_dates</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+<span class="gp">In [16]: </span><span class="n">jpy</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;data/prices/USDJPY.csv&quot;</span><span class="p">,</span> <span class="n">parse_dates</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-ipython"><div class="highlight"><pre><span></span><span class="gp">In [17]: </span><span class="n">timestamps</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="s2">&quot;2008-01-02&quot;</span><span class="p">,</span> <span class="s2">&quot;2008-05-27&quot;</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;b&quot;</span><span class="p">)</span>
+
+<span class="gp">In [18]: </span><span class="n">timestamps</span> <span class="o">=</span> <span class="n">timestamps</span> <span class="o">+</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timedelta</span><span class="p">(</span><span class="s2">&quot;16h&quot;</span><span class="p">)</span>
+
+<span class="gp">In [19]: </span><span class="n">timestamps</span> <span class="o">=</span> <span class="p">(</span><span class="n">timestamps</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="n">crude</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+<span class="gp">   ....: </span>              <span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="n">aud</span><span class="o">.</span><span class="n">index</span><span class="p">)</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="n">jpy</span><span class="o">.</span><span class="n">index</span><span class="p">))</span>
+<span class="gp">   ....: </span>
+
+<span class="gp">In [20]: </span><span class="n">ts</span> <span class="o">=</span> <span class="n">timestamps</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+<span class="gp">In [21]: </span><span class="n">blt</span><span class="o">.</span><span class="n">trade</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="s2">&quot;CLZ2008&quot;</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">crude</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">ts</span><span class="p">]))</span>
+
+<span class="gp">In [22]: </span><span class="n">aud_alpha</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">aud</span> <span class="o">/</span> <span class="n">aud</span><span class="o">.</span><span class="n">shift</span><span class="p">(</span><span class="mi">5</span><span class="p">)))</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+<span class="gp">In [23]: </span><span class="n">jpy_alpha</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">jpy</span> <span class="o">/</span> <span class="n">jpy</span><span class="o">.</span><span class="n">shift</span><span class="p">(</span><span class="mi">5</span><span class="p">)))</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+<span class="gp">In [24]: </span><span class="n">signal</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">aud_alpha</span><span class="p">,</span> <span class="n">jpy_alpha</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="gp">In [25]: </span><span class="n">signal</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;AUDUSD&quot;</span><span class="p">,</span> <span class="s2">&quot;USDJPY&quot;</span><span class="p">]</span>
+
+<span class="gp">In [26]: </span><span class="n">signal</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;Alphas&quot;</span><span class="p">)</span>
+<span class="gh">Out[26]: </span><span class="go">&lt;matplotlib.axes._subplots.AxesSubplot at 0x7fadfe3dc4e0&gt;</span>
+</pre></div>
+</div>
+<img alt="_images/alpha.png" src="_images/alpha.png" />
+<div class="highlight-ipython"><div class="highlight"><pre><span></span><span class="gp">In [27]: </span><span class="k">def</span> <span class="nf">calc_trade</span><span class="p">(</span><span class="n">position</span><span class="p">,</span> <span class="n">alpha</span><span class="p">):</span>
+<span class="gp">   ....: </span>    <span class="k">if</span> <span class="n">position</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+<span class="gp">   ....: </span>        <span class="k">return</span> <span class="n">alpha</span>
+<span class="gp">   ....: </span>    <span class="k">else</span><span class="p">:</span>
+<span class="gp">   ....: </span>        <span class="k">return</span> <span class="n">alpha</span><span class="o">*</span><span class="mi">1000000</span> <span class="o">-</span> <span class="n">position</span>
+<span class="gp">   ....: </span>
+</pre></div>
+</div>
+<div class="highlight-ipython"><div class="highlight"><pre><span></span><span class="gp">In [28]: </span><span class="k">for</span> <span class="n">ts</span> <span class="ow">in</span> <span class="n">timestamps</span><span class="p">:</span>
+<span class="gp">   ....: </span>    <span class="n">pos</span> <span class="o">=</span> <span class="n">blt</span><span class="o">.</span><span class="n">get_instruments</span><span class="p">()</span>
+<span class="gp">   ....: </span>    <span class="n">pos</span> <span class="o">=</span> <span class="n">pos</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="s2">&quot;CLZ2008&quot;</span><span class="p">)</span>
+<span class="gp">   ....: </span>    <span class="n">trds</span> <span class="o">=</span> <span class="n">calc_trade</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">signal</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">ts</span><span class="p">,:])</span>
+<span class="gp">   ....: </span>    <span class="n">aud_qty</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">trds</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="s2">&quot;AUDUSD&quot;</span><span class="p">])</span>
+<span class="gp">   ....: </span>    <span class="n">aud_price</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">aud</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">ts</span><span class="p">])</span>
+<span class="gp">   ....: </span>    <span class="n">jpy_qty</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">trds</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="s2">&quot;USDJPY&quot;</span><span class="p">])</span>
+<span class="gp">   ....: </span>    <span class="n">jpy_price</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">jpy</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">ts</span><span class="p">])</span>
+<span class="gp">   ....: </span>    <span class="n">blt</span><span class="o">.</span><span class="n">trade</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="s2">&quot;AUDUSD&quot;</span><span class="p">,</span> <span class="n">aud_qty</span><span class="p">,</span> <span class="n">aud_price</span><span class="p">)</span>
+<span class="gp">   ....: </span>    <span class="n">blt</span><span class="o">.</span><span class="n">trade</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="s2">&quot;USDJPY&quot;</span><span class="p">,</span> <span class="n">jpy_qty</span><span class="p">,</span> <span class="n">jpy_price</span><span class="p">)</span>
+<span class="gp">   ....: </span>
+</pre></div>
+</div>
+<p>If at any given time we want to get the current holdings for each instrument in
+units of the instrument we can obtain these using</p>
+<div class="highlight-ipython"><div class="highlight"><pre><span></span><span class="gp">In [29]: </span><span class="n">blt</span><span class="o">.</span><span class="n">get_instruments</span><span class="p">()</span>
+<span class="gh">Out[29]: </span><span class="go"></span>
+<span class="go">AUDUSD     1000000.0</span>
+<span class="go">CLZ2008         10.0</span>
+<span class="go">USDJPY     1000000.0</span>
+<span class="go">dtype: float64</span>
+</pre></div>
+</div>
+<p>If we want to get the value of the current holindgs denominated in the base
+currency, we can use</p>
+<div class="highlight-ipython"><div class="highlight"><pre><span></span><span class="gp">In [30]: </span><span class="n">ts</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2008-05-28T16:00:00&quot;</span><span class="p">)</span>
+
+<span class="gp">In [31]: </span><span class="n">blt</span><span class="o">.</span><span class="n">get_holdings_value</span><span class="p">(</span><span class="n">ts</span><span class="p">)</span>
+<span class="gh">Out[31]: </span><span class="go"></span>
+<span class="go">AUDUSD      962600.0</span>
+<span class="go">CLZ2008    1299600.0</span>
+<span class="go">USDJPY     1000000.0</span>
+<span class="go">dtype: float64</span>
+</pre></div>
+</div>
+<p>Note that in the call above we need to provide a timestamp since we are doing
+an FX conversion under the hood. Finally we will close out all our positions
+and calculate our closed PnL.</p>
+<div class="highlight-ipython"><div class="highlight"><pre><span></span><span class="gp">In [32]: </span><span class="n">prices</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;AUDUSD&quot;</span><span class="p">:</span> <span class="n">aud</span><span class="p">,</span> <span class="s2">&quot;USDJPY&quot;</span><span class="p">:</span> <span class="n">jpy</span><span class="p">,</span> <span class="s2">&quot;CLZ2008&quot;</span><span class="p">:</span> <span class="n">crude</span><span class="p">}</span>
+
+<span class="gp">In [33]: </span><span class="n">instrs</span> <span class="o">=</span> <span class="n">blt</span><span class="o">.</span><span class="n">get_instruments</span><span class="p">()</span>
+
+<span class="gp">In [34]: </span><span class="k">for</span> <span class="n">instr</span><span class="p">,</span> <span class="n">qty</span> <span class="ow">in</span> <span class="n">instrs</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
+<span class="gp">   ....: </span>    <span class="n">price</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">prices</span><span class="p">[</span><span class="n">instr</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">ts</span><span class="p">])</span>
+<span class="gp">   ....: </span>    <span class="n">blt</span><span class="o">.</span><span class="n">trade</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="n">instr</span><span class="p">,</span> <span class="o">-</span><span class="n">qty</span><span class="p">,</span> <span class="n">price</span><span class="p">)</span>
+<span class="gp">   ....: </span>
+</pre></div>
+</div>
+<p>If we want to look at a full history of positions we can use</p>
+<div class="highlight-ipython"><div class="highlight"><pre><span></span><span class="gp">In [35]: </span><span class="n">blt</span><span class="o">.</span><span class="n">get_holdings_history</span><span class="p">()</span>
+<span class="gh">Out[35]: </span><span class="go"></span>
+<span class="go">{&#39;JPY&#39;: {&#39;USDJPY&#39;: 2008-01-09 16:00:00          1.0</span>
+<span class="go">  2008-01-10 16:00:00    1000000.0</span>
+<span class="go">  2008-01-14 16:00:00   -1000000.0</span>
+<span class="go">  2008-01-22 16:00:00    1000000.0</span>
+<span class="go">  2008-01-23 16:00:00   -1000000.0</span>
+<span class="go">                           ...    </span>
+<span class="go">  2008-05-15 16:00:00   -1000000.0</span>
+<span class="go">  2008-05-16 16:00:00    1000000.0</span>
+<span class="go">  2008-05-20 16:00:00   -1000000.0</span>
+<span class="go">  2008-05-27 16:00:00    1000000.0</span>
+<span class="go">  2008-05-28 16:00:00          0.0</span>
+<span class="go">  dtype: float64}, &#39;USD&#39;: {&#39;AUDUSD&#39;: 2008-01-09 16:00:00         -1.0</span>
+<span class="go">  2008-01-10 16:00:00    1000000.0</span>
+<span class="go">  2008-01-16 16:00:00   -1000000.0</span>
+<span class="go">  2008-01-24 16:00:00    1000000.0</span>
+<span class="go">  2008-02-07 16:00:00   -1000000.0</span>
+<span class="go">                           ...    </span>
+<span class="go">  2008-05-07 16:00:00   -1000000.0</span>
+<span class="go">  2008-05-08 16:00:00    1000000.0</span>
+<span class="go">  2008-05-13 16:00:00   -1000000.0</span>
+<span class="go">  2008-05-16 16:00:00    1000000.0</span>
+<span class="go">  2008-05-28 16:00:00          0.0</span>
+<span class="go">  dtype: float64, &#39;CLZ2008&#39;: 2008-01-02 16:00:00    10000.0</span>
+<span class="go">  2008-05-28 16:00:00        0.0</span>
+<span class="go">  dtype: float64}}</span>
+</pre></div>
+</div>
+<p>Lastly we calculate all automatic events (interest charges, PnL sweeps and
+margin charges).</p>
+<div class="highlight-ipython"><div class="highlight"><pre><span></span><span class="gp">In [36]: </span><span class="n">ts</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2008-05-29T16:00:00&quot;</span><span class="p">)</span>
+
+<span class="gp">In [37]: </span><span class="n">blt</span><span class="o">.</span><span class="n">automatic_events</span><span class="p">(</span><span class="n">ts</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Get holdings intraday, show errors when getting holdings without prices
+Show event log of trades</p>
+<div class="highlight-ipython"><div class="highlight"><pre><span></span><span class="gp">In [38]: </span><span class="n">pnls</span> <span class="o">=</span> <span class="n">blt</span><span class="o">.</span><span class="n">get_pnl_history</span><span class="p">()</span>
+
+<span class="gp">In [39]: </span><span class="n">pnls</span>
+<span class="gh">Out[39]: </span><span class="go"></span>
+<span class="go">{&#39;AUD&#39;:                      pnl  closed pnl  open pnl</span>
+<span class="go"> 2008-01-10 16:00:00  0.0         0.0         0</span>
+<span class="go"> 2008-01-11 16:00:00  0.0         0.0         0</span>
+<span class="go"> 2008-01-14 16:00:00  0.0         0.0         0</span>
+<span class="go"> 2008-01-15 16:00:00  0.0         0.0         0</span>
+<span class="go"> 2008-01-16 16:00:00  0.0         0.0         0</span>
+<span class="go"> ...                  ...         ...       ...</span>
+<span class="go"> 2008-05-22 16:00:00  0.0         0.0         0</span>
+<span class="go"> 2008-05-23 16:00:00  0.0         0.0         0</span>
+<span class="go"> 2008-05-26 16:00:00  0.0         0.0         0</span>
+<span class="go"> 2008-05-27 16:00:00  0.0         0.0         0</span>
+<span class="go"> 2008-05-28 16:00:00  0.0         0.0         0</span>
+<span class="go"> </span>
+<span class="go"> [100 rows x 3 columns],</span>
+<span class="go"> &#39;JPY&#39;:                               pnl    closed pnl    open pnl</span>
+<span class="go"> 2008-01-10 16:00:00 -2.600000e-01 -5.128276e-17       -0.26</span>
+<span class="go"> 2008-01-11 16:00:00 -6.600003e+05  0.000000e+00  -660000.26</span>
+<span class="go"> 2008-01-14 16:00:00 -1.370000e+06  0.000000e+00 -1370000.26</span>
+<span class="go"> 2008-01-15 16:00:00  1.480000e+06 -9.640644e-11  1480000.00</span>
+<span class="go"> 2008-01-16 16:00:00  9.000000e+05  1.039098e-10   900000.00</span>
+<span class="go"> ...                           ...           ...         ...</span>
+<span class="go"> 2008-05-23 16:00:00  2.700000e+05  1.946319e-10   270000.00</span>
+<span class="go"> 2008-05-26 16:00:00  2.300000e+05 -1.909939e-11   230000.00</span>
+<span class="go"> 2008-05-27 16:00:00 -6.200000e+05  2.091838e-10  -620000.00</span>
+<span class="go"> 2008-05-28 16:00:00  4.600000e+05 -2.046363e-10   460000.00</span>
+<span class="go"> 2008-05-29 16:00:00 -3.819878e-11 -3.819878e-11        0.00</span>
+<span class="go"> </span>
+<span class="go"> [101 rows x 3 columns],</span>
+<span class="go"> &#39;USD&#39;:                                pnl     closed pnl  open pnl</span>
+<span class="go"> 2008-01-03 16:00:00    3703.575992       3.575992    3700.0</span>
+<span class="go"> 2008-01-04 16:00:00    -378.362498      21.637502    -400.0</span>
+<span class="go"> 2008-01-07 16:00:00  -23472.424107      27.575893  -23500.0</span>
+<span class="go"> 2008-01-08 16:00:00  -16566.416225      33.583775  -16600.0</span>
+<span class="go"> 2008-01-09 16:00:00  -31360.502841      39.497159  -31400.0</span>
+<span class="go"> ...                            ...            ...       ...</span>
+<span class="go"> 2008-05-23 16:00:00  340893.954279  -37206.045721  378100.0</span>
+<span class="go"> 2008-05-26 16:00:00  340809.446406  -37190.553594  378000.0</span>
+<span class="go"> 2008-05-27 16:00:00  311825.158817  -37174.841183  349000.0</span>
+<span class="go"> 2008-05-28 16:00:00  322668.346880  -43031.653120  365700.0</span>
+<span class="go"> 2008-05-29 16:00:00  327022.413244  327022.413244       0.0</span>
+<span class="go"> </span>
+<span class="go"> [106 rows x 3 columns]}</span>
+
+<span class="gp">In [40]: </span><span class="n">pnls</span><span class="p">[</span><span class="s2">&quot;USD&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;USD PnL&quot;</span><span class="p">)</span>
+<span class="go">                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        Out[40]: &lt;matplotlib.axes._subplots.AxesSubplot at 0x7fadfe6f5be0&gt;</span>
+
+<span class="gp">In [41]: </span><span class="n">pnls</span><span class="p">[</span><span class="s2">&quot;JPY&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;JPY PnL&quot;</span><span class="p">)</span>
+<span class="gh">Out[41]: </span><span class="go">&lt;matplotlib.axes._subplots.AxesSubplot at 0x7fadfe678b00&gt;</span>
+</pre></div>
+</div>
+<img alt="_images/pnl_plot_USD.png" src="_images/pnl_plot_USD.png" />
+<img alt="_images/pnl_plot_JPY.png" src="_images/pnl_plot_JPY.png" />
+<p>Another helpful thing can be looking at the blotter event log, which contains
+a record of all actions performed by the Blotter object on its instance of
+Holdings.</p>
+<div class="highlight-ipython"><div class="highlight"><pre><span></span><span class="gp">In [42]: </span><span class="n">blt</span><span class="o">.</span><span class="n">event_log</span><span class="p">[</span><span class="o">-</span><span class="mi">10</span><span class="p">:]</span>
+<span class="gh">Out[42]: </span><span class="go"></span>
+<span class="go">[&#39;CASH|{&quot;timestamp&quot;: &quot;2008-05-28 16:00:00&quot;, &quot;ccy&quot;: &quot;USD&quot;, &quot;quantity&quot;: 962600.0}&#39;,</span>
+<span class="go"> &#39;CASH|{&quot;timestamp&quot;: &quot;2008-05-28 16:00:00&quot;, &quot;ccy&quot;: &quot;AUD&quot;, &quot;quantity&quot;: -1000000.0}&#39;,</span>
+<span class="go"> &#39;TRADE|{&quot;timestamp&quot;: &quot;2008-05-28 16:00:00&quot;, &quot;ccy&quot;: &quot;USD&quot;, &quot;commission&quot;: 2.5, &quot;instrument&quot;: &quot;CLZ2008&quot;, &quot;price&quot;: 129.96, &quot;quantity&quot;: -10000.0}&#39;,</span>
+<span class="go"> &#39;TRADE|{&quot;timestamp&quot;: &quot;2008-05-28 16:00:00&quot;, &quot;ccy&quot;: &quot;JPY&quot;, &quot;commission&quot;: 2.5, &quot;instrument&quot;: &quot;USDJPY&quot;, &quot;price&quot;: 104.65, &quot;quantity&quot;: -1000000.0}&#39;,</span>
+<span class="go"> &#39;CASH|{&quot;timestamp&quot;: &quot;2008-05-28 16:00:00&quot;, &quot;ccy&quot;: &quot;JPY&quot;, &quot;quantity&quot;: 104650000.0}&#39;,</span>
+<span class="go"> &#39;CASH|{&quot;timestamp&quot;: &quot;2008-05-28 16:00:00&quot;, &quot;ccy&quot;: &quot;USD&quot;, &quot;quantity&quot;: -1000000.0}&#39;,</span>
+<span class="go"> &#39;INTEREST|{&quot;timestamp&quot;: &quot;2008-05-29 16:00:00&quot;, &quot;ccy&quot;: &quot;JPY&quot;, &quot;quantity&quot;: -8.538355345205462}&#39;,</span>
+<span class="go"> &#39;INTEREST|{&quot;timestamp&quot;: &quot;2008-05-29 16:00:00&quot;, &quot;ccy&quot;: &quot;USD&quot;, &quot;quantity&quot;: -1.4318978007000005}&#39;,</span>
+<span class="go"> &#39;PNL|{&quot;timestamp&quot;: &quot;2008-05-29 16:00:00&quot;, &quot;prices&quot;: {}}&#39;,</span>
+<span class="go"> &#39;PNL_SWEEP|{&quot;timestamp&quot;: &quot;2008-05-29 16:00:00&quot;, &quot;ccy1&quot;: &quot;JPY&quot;, &quot;ccy2&quot;: &quot;USD&quot;, &quot;quantity1&quot;: -459988.96164466254, &quot;quantity2&quot;: 4360.498261869964}&#39;]</span>
+</pre></div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h3><a href="index.html">Table Of Contents</a></h3>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Tutorial on using blotter</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API Reference</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">About blotter</a></li>
+      <li>Next: <a href="api.html" title="next chapter">API Reference</a></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/tutorial.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Matthew Gilbert.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.5.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.9</a>
+      
+      |
+      <a href="_sources/tutorial.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
