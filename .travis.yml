@@ -23,12 +23,12 @@ install:
   - conda info -a
 
   # Replace dep1 dep2 ... with your dependencies
-  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION pip pandas numpy
+  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION pip pandas numpy pytest
+  - source activate test-environment
   - pip install coveralls
   - pip install flake8
   - pip install asv
   - pip install pytest-cov
-  - source activate test-environment
   - python setup.py install
 
 script:
