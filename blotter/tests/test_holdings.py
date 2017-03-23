@@ -3,6 +3,7 @@ import array
 from blotter import blotter
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 import pandas as pd
+import numpy as np
 
 PNL_COLS = ['pnl', 'closed pnl', 'open pnl']
 
@@ -106,6 +107,34 @@ class TestHoldings(unittest.TestCase):
             holder.record_trade(ts, instr, price, quantity, commission, ccy)
 
         self.assertRaises(ValueError, book_out_of_order)
+
+    def test_trade_0_quantity(self):
+        holder = blotter.Holdings()
+        ts = pd.Timestamp('2016-12-01T10:00:00')
+        instr = 'CLZ6'
+        price = 53.36
+        quantity = 0
+        commission = 2.50
+        ccy = 'USD'
+
+        def trade_0():
+            holder.record_trade(ts, instr, price, quantity, commission, ccy)
+
+        self.assertRaises(ValueError, trade_0)
+
+    def test_trade_nan_quantity(self):
+        holder = blotter.Holdings()
+        ts = pd.Timestamp('2016-12-01T10:00:00')
+        instr = 'CLZ6'
+        price = 53.36
+        quantity = np.NaN
+        commission = 2.50
+        ccy = 'USD'
+
+        def trade_nan():
+            holder.record_trade(ts, instr, price, quantity, commission, ccy)
+
+        self.assertRaises(ValueError, trade_nan)
 
     def test_two_trades_same_ast(self):
         holder = blotter.Holdings()
@@ -272,8 +301,7 @@ class TestHoldings(unittest.TestCase):
     def test_instrument_pnl_no_trades(self):
         holder = blotter.Holdings()
         ts = pd.Timestamp('2016-12-01T10:00:00')
-        prices = pd.Series([])
-        instr_pnls = holder.get_instrument_pnl(ts, prices)
+        instr_pnls = holder.get_instrument_pnl(ts)
         self.assertDictEqual(instr_pnls, {})
 
     def test_instrument_pnl_one_instrument_one_trade(self):
@@ -624,6 +652,29 @@ class TestHoldings(unittest.TestCase):
 
         pnls = holder.get_pnl_history()
         df_pnl = pd.DataFrame([[-0.5, -2.5, 2.0]], index=[ts],
+                              columns=PNL_COLS)
+        pnls_expected = {'USD': df_pnl}
+        self.assertDictFrameEqual(pnls, pnls_expected)
+
+    def test_pnl_hist_two_instrument(self):
+        holder = blotter.Holdings()
+        ts = pd.Timestamp('2016-12-01T10:00:00')
+        instr1 = 'CLZ6'
+        price1 = 55
+        quantity1 = 1
+        instr2 = 'COZ6'
+        price2 = 54
+        quantity2 = 2
+        commission = 2.50
+        ccy = 'USD'
+        holder.record_trade(ts, instr1, price1, quantity1, commission, ccy)
+        holder.record_trade(ts, instr2, price2, quantity2, commission, ccy)
+        ts = pd.Timestamp('2016-12-01T11:00:00')
+        prices = pd.Series([57, 53], index=[instr1, instr2])
+        holder.get_instrument_pnl(ts, prices)
+
+        pnls = holder.get_pnl_history()
+        df_pnl = pd.DataFrame([[-5.0, -5.0, 0.0]], index=[ts],
                               columns=PNL_COLS)
         pnls_expected = {'USD': df_pnl}
         self.assertDictFrameEqual(pnls, pnls_expected)

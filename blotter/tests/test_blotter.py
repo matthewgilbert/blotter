@@ -98,8 +98,10 @@ class TestBlotter(unittest.TestCase):
         self.assertRaises(KeyError, make_trade)
 
     def test_get_meta_data(self):
-        blt = self.make_blotter()
-        blt.define_generic("CL", "USD", 0.1, 100, 2.5, False)
+        blt = blt = blotter.Blotter(self.prices, self.rates, base_ccy="USD")
+        # currency of instrument defaults to base ccy of blotter when not given
+        blt.define_generic("CL", margin=0.1, multiplier=100, commission=2.5,
+                           isFX=False)
 
         meta = namedtuple('metadata', ['ccy', 'margin', 'multiplier',
                                        'commission', 'isFX'])
@@ -219,6 +221,25 @@ class TestBlotter(unittest.TestCase):
         instrs_exp = pd.Series([qty, qty], index=['CLZ15', 'ESZ15'])
         assert_series_equal(instrs, instrs_exp)
 
+    def test_create_unknown_event(self):
+        blt = self.make_blotter()
+        ts = pd.Timestamp('2015-08-03T00:00:00')
+
+        def create_unknown():
+            return blt.create_events(ts, "NotAllowed")
+
+        self.assertRaises(NotImplementedError, create_unknown)
+
+    def test_dispatch_unknown_event(self):
+        blt = self.make_blotter()
+
+        ev = blotter._Event("NotAnEvent", {"the_answer": 42})
+
+        def dispatch_unknown():
+            blt.dispatch_events([ev])
+
+        self.assertRaises(NotImplementedError, dispatch_unknown)
+
     def test_create_interest_event(self):
         blt = self.make_blotter()
         blt.connect_market_data()
@@ -335,6 +356,21 @@ class TestBlotter(unittest.TestCase):
         prices = pd.concat([es.loc[ts], sxm.loc[ts]], axis=0)
         ev_exp = [blotter._Event("PNL", {"timestamp": ts, "prices": prices})]
         self.assertEventsEqual(ev, ev_exp)
+
+    def test_create_pnl_event_no_fx_conversion(self):
+        blt = self.make_blotter()
+        blt.connect_market_data()
+        ts = pd.Timestamp('2015-08-04T00:00:00')
+        qty = 1
+        price = 0
+        blt.define_generic("SXM", "ZAR", 0.1, 1, 2.5)
+        blt.map_instrument("SXM", "SXMZ15")
+        blt._trade(ts, 'SXMZ15', qty, price)
+
+        def no_fx():
+            return blt.get_holdings_value(ts)
+
+        self.assertRaises(KeyError, no_fx)
 
     def test_closed_position_pnl_event(self):
         blt = self.make_blotter()
