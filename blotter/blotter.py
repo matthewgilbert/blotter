@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import json
-from collections import defaultdict, namedtuple
+from collections import namedtuple
 from array import array
 from . import marketdata
 
@@ -660,32 +660,32 @@ class Holdings():
 
     """
     def __init__(self):
+        self._position_data_per_ccy = {}
+        self._cash = {}
+        self._interest = {}
+        self._pnl_sweep = {}
+        self._pnl_data = {}
+        self._timestamp = pd.NaT
+
+    @staticmethod
+    def _make_empty_holding():
         holding = namedtuple('holding', ['timestamp', 'trade', 'position',
                                          'avg_pos_price', 'fees',
                                          'avg_sell_price', 'total_sell',
                                          'avg_buy_price', 'total_buy'])
+        return holding(array('d'), array('d'), array('d'), array('d'),
+                       array('d'), array('d'), array('d'), array('d'),
+                       array('d'))
 
-        def hdef():
-            return holding(array('d'), array('d'), array('d'), array('d'),
-                           array('d'), array('d'), array('d'), array('d'),
-                           array('d'))
-
-        self._position_data = defaultdict(lambda: defaultdict(hdef))
-
+    @staticmethod
+    def _make_empty_qty():
         cash = namedtuple('cash', ['timestamp', 'amount'])
+        return cash(array('d'), array('d'))
 
-        def cdef():
-            return cash(array('d'), array('d'))
-
-        self._cash = defaultdict(cdef)
-        self._interest = defaultdict(cdef)
-        self._pnl_sweep = defaultdict(cdef)
-
-        def pnl_type():
-            return namedtuple('hist_pnl', ['time', 'pnl'])([], [])
-
-        self._pnl_data = defaultdict(lambda: defaultdict(pnl_type))
-        self._timestamp = pd.NaT
+    @staticmethod
+    def _make_empty_hist_pnl():
+        pnl_hist = namedtuple('hist_pnl', ['time', 'pnl'])
+        return pnl_hist([], [])
 
     @property
     def timestamp(self):
@@ -707,7 +707,7 @@ class Holdings():
             holdings in a given currency
         """
 
-        pos_data = self._position_data
+        pos_data = self._position_data_per_ccy
         positions = dict()
         for ccy in pos_data:
             ccy_pos_data = pos_data[ccy]
@@ -735,7 +735,7 @@ class Holdings():
             as values where the keys of the nested dictionary are instrument
             names and the pandas.Series is a timeseries of holdings
         """
-        pos_data = self._position_data
+        pos_data = self._position_data_per_ccy
         positions = dict()
         for ccy in pos_data:
             ccy_pos_data = pos_data[ccy]
@@ -764,7 +764,7 @@ class Holdings():
         list
             Sorted list of strings of current assets which have holdings
         """
-        pos_data = self._position_data
+        pos_data = self._position_data_per_ccy
         asts = []
         for ccy in pos_data:
             ccy_pos_data = pos_data[ccy]
@@ -812,7 +812,18 @@ class Holdings():
             price_attr = "avg_sell_price"
             total_attr = "total_sell"
 
-        holdings = self._position_data[ccy][instrument]
+        if ccy in self._position_data_per_ccy:
+            ccy_holdings = self._position_data_per_ccy[ccy]
+        else:
+            ccy_holdings = {}
+            self._position_data_per_ccy[ccy] = ccy_holdings
+
+        if instrument in ccy_holdings:
+            holdings = ccy_holdings[instrument]
+        else:
+            holdings = self._make_empty_holding()
+            ccy_holdings[instrument] = holdings
+
         # deals with first access being non existent
         prev_hldings = self._get_last(holdings, 'position')
         avg_price = self._get_last(holdings, price_attr)
@@ -826,11 +837,7 @@ class Holdings():
         holdings.trade.append(quantity)
         self._timestamp = timestamp
 
-        try:
-            fees = holdings.fees[-1]
-        except IndexError:
-            fees = 0
-
+        fees = self._get_last(holdings, "fees", default=0)
         holdings.fees.append(commission + fees)
 
         aqntity = np.abs(quantity)
@@ -919,15 +926,18 @@ class Holdings():
         self._update_property(timestamp, ccy2, quantity2, '_pnl_sweep')
 
     def _update_property(self, timestamp, ccy, quantity, attr):
-        field = getattr(self, attr)[ccy]
-        try:
-            prev_amnt = field.amount[-1]
-        except IndexError:
-            prev_amnt = 0
-
         if self._timestamp > timestamp:
             raise ValueError('Operations on Holdings must follow in time'
                              ' sequential order')
+
+        attr_dict = getattr(self, attr)
+        if ccy in attr_dict:
+            field = attr_dict[ccy]
+        else:
+            field = self._make_empty_qty()
+            attr_dict[ccy] = field
+
+        prev_amnt = self._get_last(field, "amount", default=0)
         self._timestamp = timestamp
         field.amount.append(prev_amnt + quantity)
         field.timestamp.append(timestamp.timestamp())
@@ -978,7 +988,7 @@ class Holdings():
             raise ValueError('Operations on Holdings must follow in time'
                              ' sequential order')
 
-        pos_data = self._position_data
+        pos_data = self._position_data_per_ccy
         pnls = dict()
         for ccy in pos_data:
             ccy_pos_data = pos_data[ccy]
@@ -1025,8 +1035,18 @@ class Holdings():
                 instr_pnls = pnls[ccy]
                 for instr in instr_pnls.index:
                     instr_pnl = instr_pnls.loc[instr, :].tolist()
-                    self._pnl_data[ccy][instr].time.append(timestamp)
-                    self._pnl_data[ccy][instr].pnl.append(instr_pnl)
+                    if ccy in self._pnl_data:
+                        ccy_pnl_datas = self._pnl_data[ccy]
+                    else:
+                        ccy_pnl_datas = {}
+                        self._pnl_data[ccy] = ccy_pnl_datas
+                    if instr in ccy_pnl_datas:
+                        instr_pnl_data = ccy_pnl_datas[instr]
+                    else:
+                        instr_pnl_data = self._make_empty_hist_pnl()
+                        ccy_pnl_datas[instr] = instr_pnl_data
+                    instr_pnl_data.time.append(timestamp)
+                    instr_pnl_data.pnl.append(instr_pnl)
             self._timestamp = timestamp
 
         return pnls
@@ -1062,10 +1082,8 @@ class Holdings():
             prices = pd.Series()
 
         pnls = self.get_instrument_pnl(timestamp, prices, cache)
-        interests = dict(self._interest)
-        sweeps = dict(self._pnl_sweep)
 
-        ccys = list(set().union(pnls, interests, sweeps))
+        ccys = list(set().union(pnls, self._interest, self._pnl_sweep))
         ccys.sort()
         ccy_pnls = pd.DataFrame(index=ccys,
                                 columns=['pnl', 'closed pnl', 'open pnl'],
@@ -1076,12 +1094,12 @@ class Holdings():
             except KeyError:
                 pnl_sums = pd.Series(0, index=['pnl', 'closed pnl',
                                                'open pnl'])
-            if ccy in interests:
-                interest = self._get_last(interests[ccy], 'amount')
+            if ccy in self._interest:
+                interest = self._get_last(self._interest[ccy], 'amount')
             else:
                 interest = 0
-            if ccy in sweeps:
-                swept_pnl = self._get_last(sweeps[ccy], 'amount')
+            if ccy in self._pnl_sweep:
+                swept_pnl = self._get_last(self._pnl_sweep[ccy], 'amount')
             else:
                 swept_pnl = 0
             pnl_sums.loc['pnl'] = pnl_sums.loc['pnl'] + interest + swept_pnl
@@ -1106,9 +1124,7 @@ class Holdings():
         """
 
         ccy_pnls = self.get_instrument_pnl_history()
-        interests = dict(self._interest)
-        sweeps = dict(self._pnl_sweep)
-        ccys = list(set().union(ccy_pnls, interests, sweeps))
+        ccys = list(set().union(ccy_pnls, self._interest, self._pnl_sweep))
         ccys.sort()
         hist_pnls = dict()
         PNL_COLS = ['pnl', 'closed pnl', 'open pnl']
@@ -1135,7 +1151,7 @@ class Holdings():
                 instr_pnl_sum = pd.DataFrame([], columns=PNL_COLS)
 
             try:
-                interest_data = interests[ccy]
+                interest_data = self._interest[ccy]
                 dts = self._to_timestamp(interest_data.timestamp)
                 interest = pd.DataFrame(0, index=dts, columns=PNL_COLS)
                 interest.loc[:, 'closed pnl'] = interest_data.amount
@@ -1145,7 +1161,7 @@ class Holdings():
                 interest = pd.DataFrame([], columns=PNL_COLS)
 
             try:
-                sweep_data = sweeps[ccy]
+                sweep_data = self._pnl_sweep[ccy]
                 dts = self._to_timestamp(sweep_data.timestamp)
                 sweep = pd.DataFrame(0, index=dts, columns=PNL_COLS)
                 sweep.loc[:, 'closed pnl'] = sweep_data.amount
