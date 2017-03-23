@@ -116,6 +116,21 @@ class TestBlotter(unittest.TestCase):
         hlds = blt.get_holdings_value(ts)
         assert_series_equal(hlds, pd.Series())
 
+    def test_get_holdings_value_no_fx_conversion(self):
+        blt = self.make_blotter()
+        blt.connect_market_data()
+        ts = pd.Timestamp('2015-08-04T00:00:00')
+        qty = 1
+        price = 0
+        blt.define_generic("SXM", "ZAR", 0.1, 1, 2.5)
+        blt.map_instrument("SXM", "SXMZ15")
+        blt._trade(ts, 'SXMZ15', qty, price)
+
+        def no_fx():
+            return blt.get_holdings_value(ts)
+
+        self.assertRaises(KeyError, no_fx)
+
     def test_get_holdings_timestamp_before(self):
         blt = self.make_blotter()
         blt.connect_market_data()
@@ -258,6 +273,19 @@ class TestBlotter(unittest.TestCase):
                                                "quantity": jpy_int})]
         self.assertEventsEqual(evs, evs_exp)
 
+    def test_create_interest_event_no_rate(self):
+        blt = self.make_blotter()
+        blt.connect_market_data()
+        ts = pd.Timestamp('2015-08-03T00:00:00')
+        # No ZAR data
+        blt._holdings.update_cash(ts, "ZAR", 1000000)
+        ts = pd.Timestamp('2015-08-04T00:00:00')
+
+        def get_interest():
+            return blt.create_events(ts, "INTEREST")
+
+        self.assertRaises(KeyError, get_interest)
+
     def test_create_interest_weekend_event(self):
         blt = self.make_blotter()
         blt.connect_market_data()
@@ -357,20 +385,22 @@ class TestBlotter(unittest.TestCase):
         ev_exp = [blotter._Event("PNL", {"timestamp": ts, "prices": prices})]
         self.assertEventsEqual(ev, ev_exp)
 
-    def test_create_pnl_event_no_fx_conversion(self):
+    def test_create_pnl_event_no_price(self):
         blt = self.make_blotter()
         blt.connect_market_data()
         ts = pd.Timestamp('2015-08-04T00:00:00')
         qty = 1
         price = 0
-        blt.define_generic("SXM", "ZAR", 0.1, 1, 2.5)
-        blt.map_instrument("SXM", "SXMZ15")
-        blt._trade(ts, 'SXMZ15', qty, price)
+        # No price info for BBBZ15
+        blt.define_generic("BBB", "CAD", 0.1, 1, 2.5)
+        blt.map_instrument("BBB", "BBBZ15")
+        blt._trade(ts, 'BBBZ15', qty, price)
+        ts = pd.Timestamp('2015-08-05T00:00:00')
 
-        def no_fx():
-            return blt.get_holdings_value(ts)
+        def no_price():
+            return blt.create_events(ts, "PNL")
 
-        self.assertRaises(KeyError, no_fx)
+        self.assertRaises(KeyError, no_price)
 
     def test_closed_position_pnl_event(self):
         blt = self.make_blotter()
