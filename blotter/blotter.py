@@ -9,7 +9,7 @@ from . import marketdata
 class _Event():
     # this class manages the actions which are performed on the Holdings class
     # and encapsulates all the data required for this action. The class
-    # proviedes a consistent interface regardless of whether the event is
+    # provides a consistent interface regardless of whether the event is
     # reconstituted from a string representation in a trading log using
     # Blotter.read_log or created from within the context of Blotter. The class
     # also manages the implementation details of turning events into a string
@@ -80,7 +80,7 @@ class Blotter():
 
     This class maintains market pricing data for marking holdings to market as
     well as interest rate data for charging interest and margin on open
-    positions. The class manages interest and margin charges based of a user
+    positions. The class manages interest and margin charges based on a user
     defined time of day and also provides functionality for repatriating closed
     PnL to the user defined base currency on a daily user defined time.
     """
@@ -113,7 +113,7 @@ class Blotter():
             End of day time used for automatic PnL calculation, if no automatic
             PnL calculation desired set to None
         sweep_time: pandas.Timedelta
-            Automatic end of day time used for sweeping PnL calculation, if no
+            Automatic time used for sweeping PnL calculation, if no
             automatic sweeping is desired set to None
         base_ccy: str
             Base currency of blotter, used when sweeping pnl to base currency
@@ -171,8 +171,8 @@ class Blotter():
         Parameters
         ----------
         generic: str
-            Name for the instrument type used for looking up meta data, e.g. we
-            would define 'CL' and the associated meta data for these type of
+            Name for the instrument type: used for looking up meta data, e.g.
+            we would define 'CL' and the associated meta data for these type of
             contracts
         ccy: str
             Currency that contract is traded in, default is base currency of
@@ -300,7 +300,7 @@ class Blotter():
         # calculates the actions between two datetimes and returns them as
         # ordered pandas.Series, filters out weekends since assumption is
         # nothing happens here. This could be extended to allow more advanced
-        # user defined filtering based on things such as holiday calendars
+        # user defined filtering based on things such as holiday calendars.
         # action_times is a list of tuples with Timedelta and string for action
         # type
 
@@ -339,7 +339,7 @@ class Blotter():
         required for the current open positions at a rate equal to the base
         currency interest rate + the margin_charge.
 
-        INTEREST events charges interest on the outstandings cash balances in
+        INTEREST events charges interest on the outstanding cash balances in
         different currencies based on the current interest rates.
 
         PNL event calculates and saves the PNL based on current market prices
@@ -470,13 +470,19 @@ class Blotter():
         currency sorted by index name. Note that for each currency for which
         instruments are traded in, FX rates must be available for the given
         timestamp in order to convert. E.g. if Blotter base ccy is USD, and an
-        instrument traded is in AUD, then AUDUSD must be available in the
-        prices data folder.
+        instrument traded is in AUD, then AUDUSD or USDAUD must be available in
+        the prices data folder.
 
         Parameters
         ----------
         timestamp: pandas.Timestamp which corresponds to the time for
         marking to market blotter holdings
+
+        Returns
+        -------
+        A pandas.Series with an index of instruments sorted in lexographical
+        order and values representing the market value of the positions in the
+        base currency at the time given by the timestamp
         """
         if self._holdings.timestamp > timestamp:
             raise ValueError('Must mark to market holdings after'
@@ -537,13 +543,16 @@ class Blotter():
     def write_log(self, fp):
         """
         Write log of blotter events to file. This can be used for
-        reconstituting blotter.
+        reconstituting blotter. An example output file would look like
+
+            TRADE|{"timestamp": "2016-12-01 10:00:00", "ccy": "USD", "commission": 2.5, "instrument": "CLZ16", "price": 53.46, "quantity": 100}
+            TRADE|{"timestamp": "2016-12-02 10:00:00", "ccy": "USD", "commission": 2.5, "instrument": "CLZ16", "price": 55.32, "quantity": 100}
 
         Parameters
         ----------
         fp: str
             path to write log to
-        """
+        """  # NOQA
         with open(fp, 'w') as thefile:
             for line in self._event_log:
                 thefile.write("%s\n" % line)
@@ -552,13 +561,16 @@ class Blotter():
         """
         Reconstitute a Blotter object from an event log. Note that this will
         only replay all the events, meta data and market data sources will
-        need to be reloaded as well.
+        need to be reloaded as well. An example input file would look like
+
+            TRADE|{"timestamp": "2016-12-01 10:00:00", "ccy": "USD", "commission": 2.5, "instrument": "CLZ16", "price": 53.46, "quantity": 100}
+            TRADE|{"timestamp": "2016-12-02 10:00:00", "ccy": "USD", "commission": 2.5, "instrument": "CLZ16", "price": 55.32, "quantity": 100}
 
         Parameters
         ----------
         fp: str
             path to read log from
-        """
+        """  # NOQA
         events = self._create_log_events(fp)
         self.dispatch_events(events)
 
@@ -572,14 +584,18 @@ class Blotter():
 
     def write_meta(self, fp):
         """
-        Write meta data of associated instruments in a Blotter to a file. This
-        can be used later to reconstitute a Blotter.
+        Write meta data of associated with instruments in a Blotter to a file.
+        This can be used later to reconstitute a Blotter. An example output
+        file file is
+
+            {"ccy": "CAD", "margin": 0.1, "multiplier": 100, "commission": 2.5, "isFX": false}|{"CL": ["CLU16", "CLZ16"]}
+            {"ccy": "CAD", "margin": 0, "multiplier": 1, "commission": 2.5, "isFX": true}|{"USDCAD": ["USDCAD"]}
 
         Parameters
         ----------
         fp: str
             path to write meta data
-        """
+        """  # NOQA
         # https://stackoverflow.com/questions/483666/python-reverse-invert-a-mapping#485368  # NOQA
         inv_map = {}
         for k, v in self._instr_map.items():
@@ -609,7 +625,7 @@ class Blotter():
         fp: str
             Path to file. File should have the following format
 
-           {"ccy": "CAD", "margin": 0.1, "multiplier": 100, "commission": 2.5,"isFX": false}|{"CL": ["CLU16", "CLZ16"]} 
+           {"ccy": "CAD", "margin": 0.1, "multiplier": 100, "commission": 2.5,"isFX": false}|{"CL": ["CLU16", "CLZ16"]}
            {"ccy": "CAD", "margin": 0, "multiplier": 1, "commission": 2.5, "isFX": true}|{"USDCAD": ["USDCAD"]}
 
             ...
@@ -652,7 +668,7 @@ class Holdings():
     PnL.
 
     Note: For interest bearing instruments, when users are using the Holdings
-    call standalone, users are responsible for calling charge_interest() at
+    class standalone, users are responsible for calling charge_interest() at
     appropriate intervals and with appropriate interest rates to ensure that
     the PnL calculations are correct. This is handled by the Blotter class.
 
@@ -1022,7 +1038,7 @@ class Holdings():
                 ccy_open_pnl = pd.Series(0.0, index=asts)
             else:
                 pos_value = pos.loc[asts_not0].mul(prices_ccy)
-                ccy_open_pnl = pos.loc[asts_not0].mul(prices_ccy - avg_pos_price.loc[asts_not0])  # NOQA    
+                ccy_open_pnl = pos.loc[asts_not0].mul(prices_ccy - avg_pos_price.loc[asts_not0])  # NOQA
 
             ccy_pnl = tot_sell * avg_sell_price + pos_value - avg_buy_price * tot_buy - fees  # NOQA
             ccy_closed_pnl = ccy_pnl - ccy_open_pnl
@@ -1182,7 +1198,7 @@ class Holdings():
     def get_instrument_pnl_history(self):
         """
         Return open, closed and total PnL in each currency for each traded
-        instrumentbased on cached values from previous calls to
+        instrument based on cached values from previous calls to
         get_instrument_pnl
 
         Returns
