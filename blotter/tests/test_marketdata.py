@@ -1,7 +1,7 @@
 import unittest
 import os
 from blotter import marketdata
-from pandas.util.testing import assert_frame_equal, assertIsInstance
+from pandas.util.testing import assert_frame_equal
 import pandas as pd
 
 
@@ -10,7 +10,7 @@ class TestMarketData(unittest.TestCase):
     def assertDictOfFrames(self, dict1):
         for key in dict1:
             try:
-                assertIsInstance(dict1[key], pd.DataFrame)
+                assert isinstance(dict1[key], pd.DataFrame)
             except AssertionError as e:
                 e.args = (("\nfor key %s\n" % key) + e.args[0],)
                 raise e
@@ -32,7 +32,7 @@ class TestMarketData(unittest.TestCase):
         self.assertEqual(mdata.prices.keys(), exp_keys)
         self.assertDictOfFrames(mdata.prices)
 
-        assertIsInstance(mdata.rates, pd.DataFrame)
+        assert isinstance(mdata.rates, pd.DataFrame)
 
     def test_read_file(self):
         df = marketdata.MarketData._read_file(self.price_file)
