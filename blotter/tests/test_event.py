@@ -17,11 +17,31 @@ class TestBlotter(unittest.TestCase):
         self.assertEqual(ev1.type, ev2.type)
         assert_dict_equal(ev1.data, ev2.data)
 
+    def test_no_timestamp_key(self):
+        data = {'somevalue': pd.Timestamp('2016-12-01T10:00:00'),
+                'instrument': 'CLZ6', 'price': 53.46, 'quantity': 100,
+                'commission': 2.50, 'ccy': 'USD'}
+
+        def make_ev():
+            blotter._Event('TRADE', data)
+
+        self.assertRaises(ValueError, make_ev)
+
+    def test_no_timestamp_value(self):
+        data = {'timestamp': '2016-12-01T10:00:00',
+                'instrument': 'CLZ6', 'price': 53.46, 'quantity': 100,
+                'commission': 2.50, 'ccy': 'USD'}
+
+        def make_ev():
+            blotter._Event('TRADE', data)
+
+        self.assertRaises(ValueError, make_ev)
+
     def test_trade(self):
         blt = blotter.Blotter()
         data = {'timestamp': pd.Timestamp('2016-12-01T10:00:00'),
                 'instrument': 'CLZ6', 'price': 53.46, 'quantity': 100,
-                'commission': 2.50, 'ccy': 'USD'}
+                'multiplier': 1, 'commission': 2.50, 'ccy': 'USD'}
         ev = [blotter._Event('TRADE', data)]
         blt.dispatch_events(ev)
 

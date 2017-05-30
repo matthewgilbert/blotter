@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import json
+import re
 from collections import namedtuple
 from array import array
 from . import marketdata
@@ -19,16 +20,24 @@ class _Event():
         # data is dictionary of parameters for corresponding Holdings function
         self._type = event_type
         self._data = data
+        if 'timestamp' not in data or not isinstance(data['timestamp'], pd.Timestamp):  # NOQA
+            raise ValueError("data must contain key 'timestamp' with "
+                             "pandas.Timestamp as a value")
 
     @classmethod
     def fromstring(cls, event_str):
         parts = event_str.split("|")
         event_type = parts[0]
-        data = json.loads(parts[1])
+        data = cls.parse_str_data(parts[1])
+        return cls(event_type, data)
+
+    @staticmethod
+    def parse_str_data(str_data):
+        data = json.loads(str_data)
         data['timestamp'] = pd.Timestamp(data['timestamp'])
         if 'prices' in data:
             data['prices'] = pd.Series(data['prices'])
-        return cls(event_type, data)
+        return data
 
     @property
     def type(self):
@@ -181,7 +190,7 @@ class Blotter():
             Amount of margin required for contract
         multiplier: int
             The multiplier to multiply the price by to get the notional
-            amount of the instrument
+            amount of the instrument, should only be applied to futures
         commission: float
             Commission charged for trading the instrument
         isFX: boolean
@@ -213,7 +222,7 @@ class Blotter():
         """
         self._instr_map[instrument] = generic
 
-    def trade(self, timestamp, instrument, quantity, price):
+    def trade(self, timestamp, instrument, quantity, price, ntc_price=None):
         """
         Record an instrument trade in the Blotter. This will also make a
         call to automatic_events to trigger all automatic events up to the time
@@ -226,22 +235,31 @@ class Blotter():
         instrument: str
             Tradeable instrument name
         quantity: int
-            Number of instrument traded
+            Number of instruments traded
         price: float
             Price of trade
+        ntc_price: float
+            No tcost price. Generally mid price but can be
+            anything, this value is stored for downstream analytics but is
+            unused in any calculations
         """
 
         # side effects since trade() also manages time state for when to sweep
         # pnl and charge/pay interest/margin
         self.automatic_events(timestamp)
-        self._trade(timestamp, instrument, quantity, price)
+        if ntc_price:
+            ntc_price = float(ntc_price)
+        self._trade(timestamp, instrument, int(quantity), float(price),
+                    ntc_price)
 
-    def _trade(self, timestamp, instrument, quantity, price):
+    def _trade(self, timestamp, instrument, quantity, price, ntc_price=None):
         # create and dispatch trade events
-        events = self._create_trade(timestamp, instrument, quantity, price)
+        events = self._create_trade(timestamp, instrument, quantity, price,
+                                    ntc_price)
         self.dispatch_events(events)
 
-    def _create_trade(self, timestamp, instrument, quantity, price):
+    def _create_trade(self, timestamp, instrument, quantity, price,
+                      ntc_price=None):
         # implements trade event logic and updates the cash balances for FX
         # instruments where applicable, returns events for these actions
 
@@ -254,12 +272,21 @@ class Blotter():
         metadata = self._gnrc_meta[generic]
         com = metadata.commission
         ccy = metadata.ccy
-        quantity = quantity * metadata.multiplier
+        mltplier = metadata.multiplier
 
-        events = [_Event("TRADE", {"timestamp": timestamp,
-                                   "instrument": instrument,
-                                   "price": price, "quantity": quantity,
-                                   "commission": com, "ccy": ccy})]
+        if ntc_price:
+            events = [_Event("TRADE", {"timestamp": timestamp,
+                                       "instrument": instrument,
+                                       "price": price, "quantity": quantity,
+                                       "multiplier": mltplier,
+                                       "commission": com, "ccy": ccy,
+                                       "ntc_price": ntc_price})]
+        else:
+            events = [_Event("TRADE", {"timestamp": timestamp,
+                                       "instrument": instrument,
+                                       "price": price, "quantity": quantity,
+                                       "multiplier": mltplier,
+                                       "commission": com, "ccy": ccy})]
         ev_cashs = []
         if metadata.isFX:
             counter_quantity = -quantity * price
@@ -442,7 +469,9 @@ class Blotter():
         """
 
         for event in events:
+            ev_str = str(event)
             if event.type == "TRADE":
+                event.data.pop("ntc_price", None)
                 self._holdings.record_trade(**event.data)
             elif event.type == "CASH":
                 self._holdings.update_cash(**event.data)
@@ -455,7 +484,7 @@ class Blotter():
             else:
                 raise NotImplementedError("Unknown event type")
 
-            self._event_log.append(str(event))
+            self._event_log.append(ev_str)
 
     def _get_prices(self, timestamp, instruments):
         prices = []
@@ -484,6 +513,7 @@ class Blotter():
         order and values representing the market value of the positions in the
         base currency at the time given by the timestamp
         """
+
         if self._holdings.timestamp > timestamp:
             raise ValueError('Must mark to market holdings after'
                              'Holdings.timestamp')
@@ -501,9 +531,59 @@ class Blotter():
         base_hlds_value.sort_index(inplace=True)
         return base_hlds_value
 
+    def get_trades(self):
+        """
+        Return quantity, multiplier, price, no tcost price, instrument,
+        currency, and FX conversion rate of executed trades in order of
+        execution.
+
+        The quantity is the number of instruments traded. The multiplier is any
+        multiplier associated with futures contracts, this should be 1 for FX.
+        The price is the executed price of the trade. The costless price is an
+        estimate of the price for execution without any transaction costs,
+        provided by the user at the time of execution. This value will be NA if
+        the user did not provide a value. The instrument is the name of the
+        instrument traded. The currency is the denomination of the instrument
+        and th FX conversion rate is the FX rate prevailing at the time to
+        convert through multiplication the instrument currency to the base
+        Blotter currency.
+
+        Returns
+        -------
+        A pandas.DataFrame indexed by timestamp with columns ['instrument',
+        'quantity', 'multiplier', 'price', 'ntc_price', 'ccy', 'fx_to_base'].
+        Index has name 'timestamp'.
+        """
+
+        trade_data = []
+        for ev in self.event_log:
+            match = re.match("TRADE\|", ev)
+            if match:
+                data = _Event.parse_str_data(ev[match.end():])
+                trade_data.append(data)
+
+        trades = pd.DataFrame(trade_data)
+        trades.set_index("timestamp", inplace=True)
+
+        rates = []
+        # timestamp can be repeated to unpack and iterate through
+        for t, ccy in zip(trades.index, trades.loc[:, "ccy"].values):
+            rates.append(self._get_fx_conversion(t, ccy))
+
+        trades.loc[:, "fx_to_base"] = rates
+        order = ['instrument', 'quantity', 'multiplier', 'price', 'ntc_price',
+                 'ccy', 'fx_to_base']
+        trades = trades.loc[:, order]
+        return trades
+
     def get_instruments(self):
         """
-        Return pandas.Series of the number of instruments held.
+        Get current set of instruments.
+
+        Returns
+        -------
+        A pandas.DataFrame indexed and lexicographically sorted by instrument
+        name with numpy.int values representing the number of instruments
         """
 
         hlds = self._holdings.get_holdings()
@@ -520,14 +600,15 @@ class Blotter():
             instr_nums.append(instr_num)
         instr_nums = pd.concat(instr_nums, axis=0)
         instr_nums.sort_index(inplace=True)
+        instr_nums = instr_nums.astype(int)
         return instr_nums
 
     def _get_fx_conversion(self, timestamp, ccy):
         # return rate to multiply through be to convert given ccy
-        # to base cccy
+        # to base ccy
         ccy_pair1 = ccy + self._base_ccy
         ccy_pair2 = self._base_ccy + ccy
-        if ccy is self._base_ccy:
+        if ccy == self._base_ccy:
             conv_rate = 1
         elif ccy_pair1 in self._mdata.prices:
             conv_rate = self._mdata.prices[ccy_pair1].loc[timestamp]
@@ -563,8 +644,8 @@ class Blotter():
         only replay all the events, meta data and market data sources will
         need to be reloaded as well. An example input file would look like
 
-            TRADE|{"timestamp": "2016-12-01 10:00:00", "ccy": "USD", "commission": 2.5, "instrument": "CLZ16", "price": 53.46, "quantity": 100}
-            TRADE|{"timestamp": "2016-12-02 10:00:00", "ccy": "USD", "commission": 2.5, "instrument": "CLZ16", "price": 55.32, "quantity": 100}
+            TRADE|{"timestamp": "2016-12-01 10:00:00", "ccy": "USD", "commission": 2.5, "instrument": "CLZ16", "price": 53.46, "quantity": 100, "multiplier": 1}
+            TRADE|{"timestamp": "2016-12-02 10:00:00", "ccy": "USD", "commission": 2.5, "instrument": "CLZ16", "price": 55.32, "quantity": 100, "multiplier": 1}
 
         Parameters
         ----------
@@ -712,8 +793,8 @@ class Holdings():
 
     def get_holdings(self):
         """
-        Get the current instrument holdings. This includes any multiplier
-        associated with the instrument.
+        Get the current amount of instrument holdings. This includes any
+        multiplier associated with the instrument.
 
         Returns
         -------
@@ -741,8 +822,8 @@ class Holdings():
 
     def get_holdings_history(self):
         """
-        Get the full history of holdings for each instrument traded.
-        This includes any multiplier associated with the instrument.
+        Get the full history of the amount of holdings for each instrument
+        traded (this includes any multiplier associated with the instrument).
 
         Returns
         -------
@@ -791,8 +872,8 @@ class Holdings():
         asts.sort()
         return asts
 
-    def record_trade(self, timestamp, instrument, price, quantity, commission,
-                     ccy):
+    def record_trade(self, timestamp, instrument, price, quantity, multiplier,
+                     commission, ccy):
         """
         Record an instrument trade in Holdings. Trades must be time ordered.
 
@@ -805,10 +886,12 @@ class Holdings():
         price: float
             Price of trade
         quantity: int
-            Number of instruments traded. This should include any multiplier
-            associated with the contract. E.g. for trading an ES contract,
-            this has a multipler of 50, therefore 1 ES contract should
-            correspond to a quantity of 50 * 1
+            Number of instruments traded.
+        multiplier: int
+            A number which when multiplied by the price gives the notional
+            value of a contract. E.g. for trading an ES contract,
+            the multipler is 50, therefore 1 ES contract with a price of 2081
+            the notional value of the contract is 2081 x 50$.
         commission: float
             total commission for the trade
         ccy: str
@@ -821,12 +904,17 @@ class Holdings():
         if np.isnan(quantity):
             raise ValueError("Cannot trade nan quantity of an instrument")
 
+        if multiplier <= 0 or not isinstance(multiplier, int):
+            raise ValueError("multiplier must be positive integer")
+
         if quantity > 0:
             price_attr = "avg_buy_price"
             total_attr = "total_buy"
         elif quantity < 0:
             price_attr = "avg_sell_price"
             total_attr = "total_sell"
+
+        amount = quantity * multiplier
 
         if ccy in self._position_data_per_ccy:
             ccy_holdings = self._position_data_per_ccy[ccy]
@@ -849,25 +937,25 @@ class Holdings():
             raise ValueError('Operations on Holdings must follow in time'
                              ' sequential order')
         holdings.timestamp.append(timestamp.timestamp())
-        holdings.position.append(prev_hldings + quantity)
-        holdings.trade.append(quantity)
+        holdings.position.append(prev_hldings + amount)
+        holdings.trade.append(amount)
         self._timestamp = timestamp
 
         fees = self._get_last(holdings, "fees", default=0)
         holdings.fees.append(commission + fees)
 
-        aqntity = np.abs(quantity)
-        new_price = (total * avg_price + aqntity * price) / (total + aqntity)
+        aamnt = np.abs(amount)
+        new_price = (total * avg_price + aamnt * price) / (total + aamnt)
         getattr(holdings, price_attr).append(new_price)
-        getattr(holdings, total_attr).append(total + aqntity)
+        getattr(holdings, total_attr).append(total + aamnt)
 
         # when adding to position or flipping position sign update
         # average price
-        ADDING = np.sign(quantity) == np.sign(prev_hldings)
-        NEW_POS = np.sign(quantity + prev_hldings) not in {np.sign(prev_hldings), 0}  # NOQA
+        ADDING = np.sign(amount) == np.sign(prev_hldings)
+        NEW_POS = np.sign(amount + prev_hldings) not in {np.sign(prev_hldings), 0}  # NOQA
         if ADDING:
             a_price = holdings.avg_pos_price[-1]
-            new_pos_price = (a_price * prev_hldings + price * quantity) / (prev_hldings + quantity)  # NOQA
+            new_pos_price = (a_price * prev_hldings + price * amount) / (prev_hldings + amount)  # NOQA
             holdings.avg_pos_price.append(new_pos_price)
         elif NEW_POS:
             holdings.avg_pos_price.append(price)

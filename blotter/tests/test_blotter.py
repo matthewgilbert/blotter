@@ -207,7 +207,7 @@ class TestBlotter(unittest.TestCase):
         blt.connect_market_data()
         ts = pd.Timestamp('2015-08-04T00:00:00')
         instr = 'ESZ15'
-        qty = 1.0
+        qty = 1
         price = 2081
         blt.define_generic("ES", "USD", 0.1, 100, 2.5)
         blt.map_instrument("ES", "ESZ15")
@@ -223,7 +223,7 @@ class TestBlotter(unittest.TestCase):
         ts = pd.Timestamp('2015-08-04T00:00:00')
         instr1 = 'ESZ15'
         instr2 = 'CLZ15'
-        qty = 1.0
+        qty = 1
         price = 2081
         blt.define_generic("ES", "USD", 0.1, 100, 2.5)
         blt.map_instrument("ES", "ESZ15")
@@ -235,6 +235,71 @@ class TestBlotter(unittest.TestCase):
 
         instrs_exp = pd.Series([qty, qty], index=['CLZ15', 'ESZ15'])
         assert_series_equal(instrs, instrs_exp)
+
+    def test_get_trades_one_future_base_to_base(self):
+        blt = self.make_blotter()
+        blt.connect_market_data()
+        ts = pd.Timestamp('2015-08-04T00:00:00')
+        instr = 'ESZ15'
+        qty = 1
+        price = 2081
+        mid_price = 2080.75
+        blt.define_generic("ES", "USD", 0.1, 50, 2.5)
+        blt.map_instrument("ES", "ESZ15")
+        blt._trade(ts, instr, qty, price, mid_price)
+
+        trades = blt.get_trades()
+        cols = ['instrument', 'quantity', 'multiplier', 'price', 'ntc_price',
+                'ccy', 'fx_to_base']
+        exp_trades = pd.DataFrame([[instr, 1, 50, price, mid_price,
+                                    "USD", 1.0]], index=[ts], columns=cols)
+        exp_trades.index.name = 'timestamp'
+        assert_frame_equal(trades, exp_trades)
+
+    def test_get_trades_one_future_with_mid_price_fx(self):
+        blt = self.make_blotter()
+        blt.connect_market_data()
+        ts = pd.Timestamp('2015-08-04T00:00:00')
+        instr = 'ESZ15'
+        qty = 1
+        price = 2081
+        mid_price = 2080.75
+        blt.define_generic("ES", "CAD", 0.1, 50, 2.5)
+        blt.map_instrument("ES", "ESZ15")
+        blt._trade(ts, instr, qty, price, mid_price)
+
+        trades = blt.get_trades()
+        cols = ['instrument', 'quantity', 'multiplier', 'price', 'ntc_price',
+                'ccy', 'fx_to_base']
+        exp_trades = pd.DataFrame([[instr, 1, 50, price, mid_price, "CAD",
+                                    1 / 1.3125]], index=[ts], columns=cols)
+        exp_trades.index.name = 'timestamp'
+        assert_frame_equal(trades, exp_trades)
+
+    def test_get_trades_two_futures(self):
+        blt = self.make_blotter()
+        blt.connect_market_data()
+        ts = pd.Timestamp('2015-08-04T00:00:00')
+        instr = 'ESZ15'
+        qty = 1
+        price1 = 2081
+        mid_price1 = 2080.75
+        price2 = 2083
+        mid_price2 = 2082.75
+        blt.define_generic("ES", "USD", 0.1, 50, 2.5)
+        blt.map_instrument("ES", "ESZ15")
+        blt.map_instrument("ES", "ESF16")
+        blt._trade(ts, instr, qty, price1, mid_price1)
+        blt._trade(ts, instr, qty, price2, mid_price2)
+
+        trades = blt.get_trades()
+        cols = ['instrument', 'quantity', 'multiplier', 'price', 'ntc_price',
+                'ccy', 'fx_to_base']
+        data = [[instr, 1, 50, price1, mid_price1, "USD", 1.0],
+                [instr, 1, 50, price2, mid_price2, "USD", 1.0]]
+        exp_trades = pd.DataFrame(data, index=[ts, ts], columns=cols)
+        exp_trades.index.name = 'timestamp'
+        assert_frame_equal(trades, exp_trades)
 
     def test_create_unknown_event(self):
         blt = self.make_blotter()
@@ -248,7 +313,8 @@ class TestBlotter(unittest.TestCase):
     def test_dispatch_unknown_event(self):
         blt = self.make_blotter()
 
-        ev = blotter._Event("NotAnEvent", {"the_answer": 42})
+        ev = blotter._Event("NotAnEvent",
+                            {"timestamp": pd.Timestamp('2015-01-01')})
 
         def dispatch_unknown():
             blt.dispatch_events([ev])
@@ -424,15 +490,15 @@ class TestBlotter(unittest.TestCase):
         blt = blotter.Blotter(self.prices, self.rates, base_ccy="USD")
         blt.connect_market_data()
         ts = pd.Timestamp('2015-08-03T12:00:00')
-        blt._holdings.record_trade(ts, 'CLZ15', 50.50, 1, 0, "CAD")
+        blt._holdings.record_trade(ts, 'CLZ15', 50.50, 1, 1, 0, "CAD")
         ts = pd.Timestamp('2015-08-03T14:00:00')
-        blt._holdings.record_trade(ts, 'CLZ15', 51.50, -1, 0, "CAD")
+        blt._holdings.record_trade(ts, 'CLZ15', 51.50, -1, 1, 0, "CAD")
         ts = pd.Timestamp('2015-08-04T00:00:00')
         evs = blt.create_events(ts, "PNL_SWEEP")
         evs_exp = [blotter._Event("PNL_SWEEP", {"timestamp": ts, "ccy1": "CAD",
                                                 "quantity1": -1.00,
                                                 "ccy2": "USD",
-                                                "quantity2": 1/1.3125})]
+                                                "quantity2": 1 / 1.3125})]
 
         self.assertEventsEqual(evs, evs_exp)
 
@@ -446,7 +512,7 @@ class TestBlotter(unittest.TestCase):
         pos = 1
         blt.define_generic("SXM", "CAD", 0, 1, 0)
         blt.map_instrument("SXM", "SXMZ15")
-        blt.trade(ts, 'SXMZ15', pos, 800)
+        blt.trade(ts, 'SXMZ15', pos, price=800, ntc_price=800)
         ts = pd.Timestamp('2015-08-04T00:00:00')
         blt.automatic_events(ts)
         evs = blt.create_events(ts, "PNL_SWEEP")
@@ -457,9 +523,9 @@ class TestBlotter(unittest.TestCase):
         blt = blotter.Blotter(self.prices, self.rates, base_ccy="USD")
         blt.connect_market_data()
         ts = pd.Timestamp('2015-08-03T12:00:00')
-        blt._holdings.record_trade(ts, 'CLZ15', 50.50, 1, 0, "USD")
+        blt._holdings.record_trade(ts, 'CLZ15', 50.50, 1, 1, 0, "USD")
         ts = pd.Timestamp('2015-08-03T14:00:00')
-        blt._holdings.record_trade(ts, 'CLZ15', 51.50, -1, 0, "USD")
+        blt._holdings.record_trade(ts, 'CLZ15', 51.50, -1, 1, 0, "USD")
         ts = pd.Timestamp('2015-08-04T00:00:00')
         evs = blt.create_events(ts, "PNL_SWEEP")
         evs_exp = []
@@ -469,9 +535,9 @@ class TestBlotter(unittest.TestCase):
         blt = blotter.Blotter(self.prices, self.rates, base_ccy="USD")
         blt.connect_market_data()
         ts = pd.Timestamp('2015-08-03T12:00:00')
-        blt._holdings.record_trade(ts, 'CLZ15', 50.50, 1, 0, "CAD")
+        blt._holdings.record_trade(ts, 'CLZ15', 50.50, 1, 1, 0, "CAD")
         ts = pd.Timestamp('2015-08-03T14:00:00')
-        blt._holdings.record_trade(ts, 'CLZ15', 51.50, -1, 0, "CAD")
+        blt._holdings.record_trade(ts, 'CLZ15', 51.50, -1, 1, 0, "CAD")
         ts = pd.Timestamp('2015-08-04T00:00:00')
         evs = blt.create_events(ts, "PNL_SWEEP")
         blt.dispatch_events(evs)
@@ -485,12 +551,13 @@ class TestBlotter(unittest.TestCase):
         blt.define_generic("AUDUSD", "USD", 0, 1, 0, True)
         blt.map_instrument("AUDUSD", "AUDUSD")
         ts = pd.Timestamp('2015-08-03T12:00:00')
-        evs = blt._create_trade(ts, "AUDUSD", 1000, 0.80)
+        evs = blt._create_trade(ts, "AUDUSD", quantity=1000, price=0.80)
 
         ev_exp = [blotter._Event("TRADE", {"timestamp": ts,
                                            "instrument": "AUDUSD",
                                            "ccy": "USD", "price": 0.80,
-                                           "quantity": 1000, "commission": 0}),
+                                           "quantity": 1000, "multiplier": 1,
+                                           "commission": 0}),
                   blotter._Event("CASH", {"timestamp": ts, "ccy": "USD",
                                           "quantity": -1000 * 0.80}),
                   blotter._Event("CASH", {"timestamp": ts, "ccy": "AUD",
@@ -503,12 +570,13 @@ class TestBlotter(unittest.TestCase):
         blt.define_generic("USDCAD", "CAD", 0, 1, 0, True)
         blt.map_instrument("USDCAD", "USDCAD")
         ts = pd.Timestamp('2015-08-03T12:00:00')
-        evs = blt._create_trade(ts, "USDCAD", 1000, 1.31)
+        evs = blt._create_trade(ts, "USDCAD", quantity=1000, price=1.31)
 
         ev_exp = [blotter._Event("TRADE", {"timestamp": ts,
                                            "instrument": "USDCAD",
                                            "ccy": "CAD", "price": 1.31,
-                                           "quantity": 1000, "commission": 0}),
+                                           "quantity": 1000, "multiplier": 1,
+                                           "commission": 0}),
                   blotter._Event("CASH", {"timestamp": ts, "ccy": "CAD",
                                           "quantity": -1000 * 1.31}),
                   blotter._Event("CASH", {"timestamp": ts, "ccy": "USD",
@@ -521,12 +589,13 @@ class TestBlotter(unittest.TestCase):
         blt.define_generic("ES", "USD", 0, 1, 0, False)
         blt.map_instrument("ES", "ESZ15")
         ts = pd.Timestamp('2015-08-03T12:00:00')
-        evs = blt._create_trade(ts, "ESZ15", 1, 1800)
+        evs = blt._create_trade(ts, "ESZ15", quantity=1, price=1800)
 
         ev_exp = [blotter._Event("TRADE", {"timestamp": ts,
                                            "instrument": "ESZ15",
                                            "ccy": "USD", "price": 1800,
-                                           "quantity": 1, "commission": 0})]
+                                           "quantity": 1, "multiplier": 1,
+                                           "commission": 0})]
 
         self.assertEventsEqual(evs, ev_exp)
 
@@ -541,6 +610,8 @@ class TestBlotter(unittest.TestCase):
 
     def test_create_read_log(self):
         blt = blotter.Blotter(self.prices, self.rates, base_ccy="USD")
+        # test events can be properly read error free
+        blt.read_log(self.log)
         evs = blt._create_log_events(self.log)
 
         ts1 = pd.Timestamp('2016-12-01T10:00:00')
@@ -549,11 +620,14 @@ class TestBlotter(unittest.TestCase):
                                             "instrument": "CLZ16",
                                             "ccy": "USD", "price": 53.46,
                                             "quantity": 100,
+                                            "multiplier": 1,
                                             "commission": 2.50}),
                    blotter._Event("TRADE", {"timestamp": ts2,
                                             "instrument": "CLZ16",
                                             "ccy": "USD", "price": 55.32,
+                                            "ntc_price": 55.32,
                                             "quantity": 100,
+                                            "multiplier": 1,
                                             "commission": 2.50})]
         self.assertEventsEqual(evs, exp_evs)
 
@@ -563,8 +637,8 @@ class TestBlotter(unittest.TestCase):
         blt.map_instrument("CL", "CLZ16")
         ts1 = pd.Timestamp('2016-12-01T10:00:00')
         ts2 = pd.Timestamp('2016-12-02T10:00:00')
-        blt._trade(ts1, "CLZ16", 100, 53.46)
-        blt._trade(ts2, "CLZ16", 100, 55.32)
+        blt._trade(ts1, "CLZ16", quantity=100, price=53.46)
+        blt._trade(ts2, "CLZ16", quantity=100, price=55.32, ntc_price=55.32)
         tmp_file = tempfile.mktemp()
         blt.write_log(tmp_file)
 

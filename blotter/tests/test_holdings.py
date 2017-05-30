@@ -78,9 +78,10 @@ class TestHoldings(unittest.TestCase):
         instr = 'CLZ6'
         price = 53.36
         quantity = 1
-        commission = 2.50
+        mult = 1
+        cmsion = 2.50
         ccy = 'USD'
-        holder.record_trade(ts, instr, price, quantity, commission, ccy)
+        holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
 
         asts = holder.get_assets()
         pos = holder.get_holdings()
@@ -92,19 +93,42 @@ class TestHoldings(unittest.TestCase):
         exp_pos_hst = {"USD": {"CLZ6": pd.Series(1.0, index=[ts])}}
         self.assertNestedDictSeriesEqual(pos_hist, exp_pos_hst)
 
+    def test_one_trade_with_mult(self):
+        holder = blotter.Holdings()
+        ts = pd.Timestamp('2016-12-01T10:00:00')
+        instr = 'CLZ6'
+        price = 53.36
+        quantity = 1
+        mult = 2
+        cmsion = 2.50
+        ccy = 'USD'
+        holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
+
+        asts = holder.get_assets()
+        pos = holder.get_holdings()
+        pos_hist = holder.get_holdings_history()
+
+        self.assertEqual(asts, ['CLZ6'])
+        self.assertDictSeriesEqual(pos,
+                                   {"USD": pd.Series(2.0, index=['CLZ6'])})
+        exp_pos_hst = {"USD": {"CLZ6": pd.Series(2.0, index=[ts])}}
+        self.assertNestedDictSeriesEqual(pos_hist, exp_pos_hst)
+
     def test_trade_out_of_order(self):
         holder = blotter.Holdings()
         ts = pd.Timestamp('2016-12-01T10:00:00')
         instr = 'CLZ6'
         price = 53.36
         quantity = 1
-        commission = 2.50
+        mult = 1
+        cmsion = 2.50
         ccy = 'USD'
-        holder.record_trade(ts, instr, price, quantity, commission, ccy)
+        holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
         ts = pd.Timestamp('2016-12-01T09:00:00')
 
         def book_out_of_order():
-            holder.record_trade(ts, instr, price, quantity, commission, ccy)
+            holder.record_trade(ts, instr, price, quantity, mult, cmsion,
+                                ccy)
 
         self.assertRaises(ValueError, book_out_of_order)
 
@@ -114,13 +138,44 @@ class TestHoldings(unittest.TestCase):
         instr = 'CLZ6'
         price = 53.36
         quantity = 0
-        commission = 2.50
+        mult = 1
+        cmsion = 2.50
         ccy = 'USD'
 
         def trade_0():
-            holder.record_trade(ts, instr, price, quantity, commission, ccy)
+            holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
 
         self.assertRaises(ValueError, trade_0)
+
+    def test_trade_mult_neg(self):
+        holder = blotter.Holdings()
+        ts = pd.Timestamp('2016-12-01T10:00:00')
+        instr = 'CLZ6'
+        price = 53.36
+        quantity = 1
+        mult = -1
+        cmsion = 2.50
+        ccy = 'USD'
+
+        def trade_bad():
+            holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
+
+        self.assertRaises(ValueError, trade_bad)
+
+    def test_trade_mult_float(self):
+        holder = blotter.Holdings()
+        ts = pd.Timestamp('2016-12-01T10:00:00')
+        instr = 'CLZ6'
+        price = 53.36
+        quantity = 1
+        mult = 1.5
+        cmsion = 2.50
+        ccy = 'USD'
+
+        def trade_bad():
+            holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
+
+        self.assertRaises(ValueError, trade_bad)
 
     def test_trade_nan_quantity(self):
         holder = blotter.Holdings()
@@ -128,11 +183,12 @@ class TestHoldings(unittest.TestCase):
         instr = 'CLZ6'
         price = 53.36
         quantity = np.NaN
-        commission = 2.50
+        mult = 1
+        cmsion = 2.50
         ccy = 'USD'
 
         def trade_nan():
-            holder.record_trade(ts, instr, price, quantity, commission, ccy)
+            holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
 
         self.assertRaises(ValueError, trade_nan)
 
@@ -145,10 +201,11 @@ class TestHoldings(unittest.TestCase):
         price2 = 53.84
         quantity = 1
         quantity2 = 7
-        commission = 2.50
+        mult = 1
+        cmsion = 2.50
         ccy = 'USD'
-        holder.record_trade(ts, instr, price, quantity, commission, ccy)
-        holder.record_trade(ts2, instr, price2, quantity2, commission, ccy)
+        holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
+        holder.record_trade(ts2, instr, price2, quantity2, mult, cmsion, ccy)
 
         asts = holder.get_assets()
         pos = holder.get_holdings()
@@ -171,10 +228,11 @@ class TestHoldings(unittest.TestCase):
         price2 = 53.84
         quantity = 1
         quantity2 = -1
-        commission = 2.50
+        mult = 1
+        cmsion = 2.50
         ccy = 'USD'
-        holder.record_trade(ts, instr, price, quantity, commission, ccy)
-        holder.record_trade(ts2, instr, price2, quantity2, commission, ccy)
+        holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
+        holder.record_trade(ts2, instr, price2, quantity2, mult, cmsion, ccy)
 
         asts = holder.get_assets()
         pos = holder.get_holdings()
@@ -195,10 +253,11 @@ class TestHoldings(unittest.TestCase):
         price2 = 53.84
         quantity = 1
         quantity2 = 7
-        commission = 2.50
+        mult = 1
+        cmsion = 2.50
         ccy = 'USD'
-        holder.record_trade(ts, instr, price, quantity, commission, ccy)
-        holder.record_trade(ts2, instr2, price2, quantity2, commission, ccy)
+        holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
+        holder.record_trade(ts2, instr2, price2, quantity2, mult, cmsion, ccy)
 
         asts = holder.get_assets()
         pos = holder.get_holdings()
@@ -221,11 +280,12 @@ class TestHoldings(unittest.TestCase):
         price2 = 53.84
         quantity = 1
         quantity2 = 7
-        commission = 2.50
+        mult = 1
+        cmsion = 2.50
         ccy = 'USD'
         ccy2 = 'CAD'
-        holder.record_trade(ts, instr, price, quantity, commission, ccy)
-        holder.record_trade(ts2, instr2, price2, quantity2, commission, ccy2)
+        holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
+        holder.record_trade(ts2, instr2, price2, quantity2, mult, cmsion, ccy2)
 
         asts = holder.get_assets()
         pos = holder.get_holdings()
@@ -248,15 +308,16 @@ class TestHoldings(unittest.TestCase):
         instr = 'CLZ6'
         price = 53.36
         quantity = 1
-        commission = 2.50
+        mult = 1
+        cmsion = 2.50
         ccy = 'USD'
-        holder.record_trade(ts, instr, price, quantity, commission, ccy)
+        holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
 
         asts = holder.get_assets()  # NOQA
         pos = holder.get_holdings()  # NOQA
         pos_hst = holder.get_holdings_history()  # NOQA
 
-        holder.record_trade(ts, instr, price, quantity, commission, ccy)
+        holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
 
     def test_get_no_cash(self):
         holder = blotter.Holdings()
@@ -310,9 +371,10 @@ class TestHoldings(unittest.TestCase):
         instr = 'CLZ6'
         price = 55
         quantity = 1
-        commission = 2.50
+        mult = 1
+        cmsion = 2.50
         ccy = 'USD'
-        holder.record_trade(ts, instr, price, quantity, commission, ccy)
+        holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
         ts = pd.Timestamp('2016-12-01T11:00:00')
         pnls = holder.get_instrument_pnl(ts, pd.Series([56], index=[instr]))
 
@@ -330,9 +392,10 @@ class TestHoldings(unittest.TestCase):
         instr = 'CLZ6'
         price = 55
         quantity = 1
-        commission = 2.50
+        mult = 1
+        cmsion = 2.50
         ccy = 'USD'
-        holder.record_trade(ts, instr, price, quantity, commission, ccy)
+        holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
         ts = pd.Timestamp('2016-12-01T11:00:00')
         # add prices for irrelevant instruments, these should be ignored
         prices = pd.Series([56, 80, 0.80], index=[instr, 'COZ6', 'AUDUSD'])
@@ -353,10 +416,11 @@ class TestHoldings(unittest.TestCase):
         instr2 = 'COZ6'
         price = 55
         quantity = 1
-        commission = 2.50
+        mult = 1
+        cmsion = 2.50
         ccy = 'USD'
-        holder.record_trade(ts, instr, price, quantity, commission, ccy)
-        holder.record_trade(ts, instr2, price, quantity, commission, ccy)
+        holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
+        holder.record_trade(ts, instr2, price, quantity, mult, cmsion, ccy)
         ts = pd.Timestamp('2016-12-01T11:00:00')
         prices = pd.Series([57, 56], index=[instr, instr2])
         pnls = holder.get_instrument_pnl(ts, prices)
@@ -376,11 +440,12 @@ class TestHoldings(unittest.TestCase):
         instr2 = 'COZ6'
         price = 55
         quantity = 1
-        commission = 2.50
+        mult = 1
+        cmsion = 2.50
         ccy = 'USD'
         ccy2 = 'CAD'
-        holder.record_trade(ts, instr, price, quantity, commission, ccy)
-        holder.record_trade(ts, instr2, price, quantity, commission, ccy2)
+        holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
+        holder.record_trade(ts, instr2, price, quantity, mult, cmsion, ccy2)
         ts = pd.Timestamp('2016-12-01T11:00:00')
         prices = pd.Series([57, 56], index=[instr, instr2])
         pnls = holder.get_instrument_pnl(ts, prices)
@@ -404,13 +469,14 @@ class TestHoldings(unittest.TestCase):
         instr = 'CLZ6'
         price = 55
         quantity = 1
-        commission = 2.50
+        mult = 1
+        cmsion = 2.50
         ccy = 'USD'
-        holder.record_trade(ts, instr, price, quantity, commission, ccy)
+        holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
         ts = pd.Timestamp('2016-12-01T11:00:00')
         price = 65
         quantity = -1
-        holder.record_trade(ts, instr, price, quantity, commission, ccy)
+        holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
         ts = pd.Timestamp('2016-12-01T12:00:00')
         # when there is no position in an instrument the price for that is
         # ignored so doesn't need to be passed
@@ -429,9 +495,10 @@ class TestHoldings(unittest.TestCase):
         instr = 'CLZ6'
         price = 55
         quantity = 1
-        commission = 2.50
+        mult = 1
+        cmsion = 2.50
         ccy = 'USD'
-        holder.record_trade(ts, instr, price, quantity, commission, ccy)
+        holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
         ts = pd.Timestamp('2016-12-01T11:00:00')
         prices = pd.Series()
 
@@ -446,9 +513,10 @@ class TestHoldings(unittest.TestCase):
         instr = 'CLZ6'
         price = 55
         quantity = 1
-        commission = 2.50
+        mult = 1
+        cmsion = 2.50
         ccy = 'USD'
-        holder.record_trade(ts, instr, price, quantity, commission, ccy)
+        holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
         ts = pd.Timestamp('2016-12-01T11:00:00')
         prices = pd.Series([pd.np.NaN], index=[instr])
 
@@ -468,10 +536,11 @@ class TestHoldings(unittest.TestCase):
         instr2 = 'COZ6'
         price = 55
         quantity = 1
-        commission = 0
+        mult = 1
+        cmsion = 0
         ccy = 'USD'
-        holder.record_trade(ts, instr1, price, quantity, commission, ccy)
-        holder.record_trade(ts, instr2, price, quantity, commission, ccy)
+        holder.record_trade(ts, instr1, price, quantity, mult, cmsion, ccy)
+        holder.record_trade(ts, instr2, price, quantity, mult, cmsion, ccy)
         ts = pd.Timestamp('2016-12-01T11:00:00')
         prices = pd.Series([pd.np.NaN, price], index=[instr1, instr2])
 
@@ -505,9 +574,10 @@ class TestHoldings(unittest.TestCase):
         instr = 'CLZ6'
         price = 55
         quantity = 1
-        commission = 2.50
+        mult = 1
+        cmsion = 2.50
         ccy = 'USD'
-        holder.record_trade(ts, instr, price, quantity, commission, ccy)
+        holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
         ts = pd.Timestamp('2016-12-01T11:00:00')
         prices = pd.Series([57], index=[instr])
         holder.get_instrument_pnl(ts, prices)
@@ -524,9 +594,10 @@ class TestHoldings(unittest.TestCase):
         instr = 'CLZ6'
         price = 55
         quantity = 1
-        commission = 2.50
+        mult = 1
+        cmsion = 2.50
         ccy = 'USD'
-        holder.record_trade(ts, instr, price, quantity, commission, ccy)
+        holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
         ts = pd.Timestamp('2016-12-01T11:00:00')
         prices = pd.Series([57], index=[instr])
         holder.get_instrument_pnl(ts, prices, cache=False)
@@ -541,9 +612,10 @@ class TestHoldings(unittest.TestCase):
         instr = 'CLZ6'
         price = 55
         quantity = 1
-        commission = 2.50
+        mult = 1
+        cmsion = 2.50
         ccy = 'USD'
-        holder.record_trade(ts1, instr, price, quantity, commission, ccy)
+        holder.record_trade(ts1, instr, price, quantity, mult, cmsion, ccy)
 
         ts2 = pd.Timestamp('2016-12-01T11:00:00')
         prices = pd.Series([56], index=[instr])
@@ -552,7 +624,7 @@ class TestHoldings(unittest.TestCase):
         ts3 = pd.Timestamp('2016-12-01T12:00:00')
         instr2 = 'COZ6'
         price = 50
-        holder.record_trade(ts3, instr2, price, quantity, commission, ccy)
+        holder.record_trade(ts3, instr2, price, quantity, mult, cmsion, ccy)
 
         ts4 = pd.Timestamp('2016-12-01T13:00:00')
         prices = pd.Series([57, 49], index=[instr, instr2])
@@ -578,9 +650,10 @@ class TestHoldings(unittest.TestCase):
         instr = 'CLZ6'
         price = 55
         quantity = 1
-        commission = 2.50
+        mult = 1
+        cmsion = 2.50
         ccy = 'USD'
-        holder.record_trade(ts1, instr, price, quantity, commission, ccy)
+        holder.record_trade(ts1, instr, price, quantity, mult, cmsion, ccy)
 
         ts2 = pd.Timestamp('2016-12-01T09:00:00')
         prices = pd.Series([56], index=[instr])
@@ -597,11 +670,12 @@ class TestHoldings(unittest.TestCase):
         instr2 = 'COZ6'
         price = 55
         quantity = 1
-        commission = 2.50
+        mult = 1
+        cmsion = 2.50
         ccy = 'USD'
         ccy2 = 'CAD'
-        holder.record_trade(ts1, instr, price, quantity, commission, ccy)
-        holder.record_trade(ts1, instr2, price, quantity, commission, ccy2)
+        holder.record_trade(ts1, instr, price, quantity, mult, cmsion, ccy)
+        holder.record_trade(ts1, instr2, price, quantity, mult, cmsion, ccy2)
 
         ts2 = pd.Timestamp('2016-12-01T10:30:00')
         prices = pd.Series([56, 57], index=[instr, instr2])
@@ -643,9 +717,10 @@ class TestHoldings(unittest.TestCase):
         instr = 'CLZ6'
         price = 55
         quantity = 1
-        commission = 2.50
+        mult = 1
+        cmsion = 2.50
         ccy = 'USD'
-        holder.record_trade(ts, instr, price, quantity, commission, ccy)
+        holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
         ts = pd.Timestamp('2016-12-01T11:00:00')
         prices = pd.Series([57], index=[instr])
         holder.get_instrument_pnl(ts, prices)
@@ -662,13 +737,14 @@ class TestHoldings(unittest.TestCase):
         instr1 = 'CLZ6'
         price1 = 55
         quantity1 = 1
+        mult = 1
         instr2 = 'COZ6'
         price2 = 54
         quantity2 = 2
-        commission = 2.50
+        cmsion = 2.50
         ccy = 'USD'
-        holder.record_trade(ts, instr1, price1, quantity1, commission, ccy)
-        holder.record_trade(ts, instr2, price2, quantity2, commission, ccy)
+        holder.record_trade(ts, instr1, price1, quantity1, mult, cmsion, ccy)
+        holder.record_trade(ts, instr2, price2, quantity2, mult, cmsion, ccy)
         ts = pd.Timestamp('2016-12-01T11:00:00')
         prices = pd.Series([57, 53], index=[instr1, instr2])
         holder.get_instrument_pnl(ts, prices)
@@ -683,8 +759,8 @@ class TestHoldings(unittest.TestCase):
         holder = blotter.Holdings()
         ts = pd.Timestamp('2016-12-01T10:00:00')
 
-        holder.record_trade(ts, 'CLZ6', 55, 1, 2.50, 'USD')
-        holder.record_trade(ts, 'USDJPY', 110.00, 1000, 0, 'JPY')
+        holder.record_trade(ts, 'CLZ6', 55, 1, 1, 2.50, 'USD')
+        holder.record_trade(ts, 'USDJPY', 110.00, 1000, 1, 0, 'JPY')
 
         ts_eod1 = pd.Timestamp('2016-12-01T16:00:00')
         prices = pd.Series([56, 111.00], index=['CLZ6', 'USDJPY'])
@@ -693,7 +769,7 @@ class TestHoldings(unittest.TestCase):
         holder.get_instrument_pnl(ts_eod1, prices)
 
         ts_eod2 = pd.Timestamp('2016-12-02T16:00:00')
-        holder.record_trade(ts_eod2, 'USDJPY', 112.0, -1000, 0, 'JPY')
+        holder.record_trade(ts_eod2, 'USDJPY', 112.0, -1000, 1, 0, 'JPY')
         usd = ((112 - 110) * 1000 - 1) / 112.0
         jpy = -((112 - 110) * 1000 - 1)
         holder.sweep_pnl(ts_eod2, 'USD', usd, 'JPY', jpy)
@@ -765,9 +841,10 @@ class TestHoldings(unittest.TestCase):
         instr = 'CLZ6'
         price = 55
         quantity = 1
-        commission = 2.50
+        mult = 1
+        cmsion = 2.50
         ccy = 'USD'
-        holder.record_trade(ts, instr, price, quantity, commission, ccy)
+        holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
         ts = pd.Timestamp('2016-12-01T11:00:00')
         pnl = holder.get_pnl(ts, pd.Series([56], index=[instr]))
 
@@ -785,13 +862,14 @@ class TestHoldings(unittest.TestCase):
         instr = 'CLZ6'
         price = 55
         quantity = 1
-        commission = 2.50
+        mult = 1
+        cmsion = 2.50
         ccy = 'USD'
-        holder.record_trade(ts, instr, price, quantity, commission, ccy)
+        holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
         ts = pd.Timestamp('2016-12-01T11:00:00')
         price = 65
         quantity = -1
-        holder.record_trade(ts, instr, price, quantity, commission, ccy)
+        holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
         ts = pd.Timestamp('2016-12-01T12:00:00')
         pnl = holder.get_pnl(ts, pd.Series())
 
@@ -809,13 +887,14 @@ class TestHoldings(unittest.TestCase):
         instr = 'CLZ6'
         price = 55
         quantity = 1
-        commission = 2.50
+        mult = 1
+        cmsion = 2.50
         ccy = 'USD'
-        holder.record_trade(ts, instr, price, quantity, commission, ccy)
+        holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
         ts = pd.Timestamp('2016-12-01T11:00:00')
         price = 65
         quantity = -1
-        holder.record_trade(ts, instr, price, quantity, commission, ccy)
+        holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
         ts = pd.Timestamp('2016-12-01T12:00:00')
         pnl = holder.get_pnl(ts)
         pnl_tot = pd.Series([5.0], index=['USD'])
@@ -832,13 +911,14 @@ class TestHoldings(unittest.TestCase):
         instr = 'CLZ6'
         price = 55
         quantity = 5
-        commission = 2.50
+        mult = 1
+        cmsion = 2.50
         ccy = 'USD'
-        holder.record_trade(ts, instr, price, quantity, commission, ccy)
+        holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
         ts = pd.Timestamp('2016-12-01T11:00:00')
         price = 65
         quantity = -1
-        holder.record_trade(ts, instr, price, quantity, commission, ccy)
+        holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
         ts = pd.Timestamp('2016-12-01T12:00:00')
         new_price = pd.Series([70], index=[instr])
         pnl = holder.get_pnl(ts, new_price)
@@ -857,9 +937,10 @@ class TestHoldings(unittest.TestCase):
         instr = 'AUDUSD'
         price = 0.80
         quantity = 1000000
-        commission = 2.50
+        mult = 1
+        cmsion = 2.50
         ccy = 'USD'
-        holder.record_trade(ts, instr, price, quantity, commission, ccy)
+        holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
         ts = pd.Timestamp('2016-12-01T16:00:00')
         # accrue interest on long AUD position, pay on short USD position
         holder.charge_interest(ts, 'AUD', 55)
@@ -910,8 +991,8 @@ class TestHoldings(unittest.TestCase):
         holder = blotter.Holdings()
         ts = pd.Timestamp('2016-12-01T10:00:00')
 
-        holder.record_trade(ts, 'CLZ6', 55, 1, 2.50, 'USD')
-        holder.record_trade(ts, 'USDJPY', 110.00, 1000, 0, 'JPY')
+        holder.record_trade(ts, 'CLZ6', 55, 1, 1, 2.50, 'USD')
+        holder.record_trade(ts, 'USDJPY', 110.00, 1000, 1, 0, 'JPY')
 
         ts_eod1 = pd.Timestamp('2016-12-01T16:00:00')
         prices = pd.Series([56, 111.00], index=['CLZ6', 'USDJPY'])
@@ -920,7 +1001,7 @@ class TestHoldings(unittest.TestCase):
         holder.get_instrument_pnl(ts_eod1, prices)
 
         ts_eod2 = pd.Timestamp('2016-12-02T16:00:00')
-        holder.record_trade(ts_eod2, 'USDJPY', 112.0, -1000, 0, 'JPY')
+        holder.record_trade(ts_eod2, 'USDJPY', 112.0, -1000, 1, 0, 'JPY')
         usd = ((112 - 110) * 1000 - 1) / 112.0
         jpy = -((112 - 110) * 1000 - 1)
         holder.sweep_pnl(ts_eod2, 'USD', usd, 'JPY', jpy)
