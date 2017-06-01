@@ -250,8 +250,8 @@ class TestBlotter(unittest.TestCase):
 
         trades = blt.get_trades()
         cols = ['instrument', 'quantity', 'multiplier', 'price', 'ntc_price',
-                'ccy', 'fx_to_base']
-        exp_trades = pd.DataFrame([[instr, 1, 50, price, mid_price,
+                'commission', 'ccy', 'fx_to_base']
+        exp_trades = pd.DataFrame([[instr, 1, 50, price, mid_price, 2.5,
                                     "USD", 1.0]], index=[ts], columns=cols)
         exp_trades.index.name = 'timestamp'
         assert_frame_equal(trades, exp_trades)
@@ -270,8 +270,8 @@ class TestBlotter(unittest.TestCase):
 
         trades = blt.get_trades()
         cols = ['instrument', 'quantity', 'multiplier', 'price', 'ntc_price',
-                'ccy', 'fx_to_base']
-        exp_trades = pd.DataFrame([[instr, 1, 50, price, mid_price, "CAD",
+                'commission', 'ccy', 'fx_to_base']
+        exp_trades = pd.DataFrame([[instr, 1, 50, price, mid_price, 2.5, "CAD",
                                     1 / 1.3125]], index=[ts], columns=cols)
         exp_trades.index.name = 'timestamp'
         assert_frame_equal(trades, exp_trades)
@@ -294,9 +294,9 @@ class TestBlotter(unittest.TestCase):
 
         trades = blt.get_trades()
         cols = ['instrument', 'quantity', 'multiplier', 'price', 'ntc_price',
-                'ccy', 'fx_to_base']
-        data = [[instr, 1, 50, price1, mid_price1, "USD", 1.0],
-                [instr, 1, 50, price2, mid_price2, "USD", 1.0]]
+                'commission', 'ccy', 'fx_to_base']
+        data = [[instr, 1, 50, price1, mid_price1, 2.5, "USD", 1.0],
+                [instr, 1, 50, price2, mid_price2, 2.5, "USD", 1.0]]
         exp_trades = pd.DataFrame(data, index=[ts, ts], columns=cols)
         exp_trades.index.name = 'timestamp'
         assert_frame_equal(trades, exp_trades)

@@ -389,7 +389,7 @@ class Blotter():
 
         """
         events = []
-        if action is "INTEREST":
+        if action == "INTEREST":
             cashs = self._holdings.get_cash_balances()
             if not cashs.empty:
                 rates = self._mdata.rates.loc[timestamp, cashs.index]
@@ -400,7 +400,7 @@ class Blotter():
                                              "ccy": ccy,
                                              "quantity": qty})
                     events.append(ev)
-        elif action is "MARGIN":
+        elif action == "MARGIN":
             # calculate total margin charge
             base_hlds_value = np.abs(self.get_holdings_value(timestamp))
             int_rate = self._mdata.rates.loc[timestamp, self._base_ccy]
@@ -415,7 +415,7 @@ class Blotter():
                                          "ccy": self._base_ccy,
                                          "quantity": charge})
                 events.append(ev)
-        elif action is "PNL":
+        elif action == "PNL":
             assets = self._holdings.get_assets()
             if assets:
                 prices = self._get_prices(timestamp, assets)
@@ -423,7 +423,7 @@ class Blotter():
                 prices = pd.Series([])
             ev = _Event("PNL", {"timestamp": timestamp, "prices": prices})
             events.append(ev)
-        elif action is "PNL_SWEEP":
+        elif action == "PNL_SWEEP":
             assets = self._holdings.get_assets()
             if assets:
                 prices = self._get_prices(timestamp, assets)
@@ -531,11 +531,49 @@ class Blotter():
         base_hlds_value.sort_index(inplace=True)
         return base_hlds_value
 
+    def get_holdings_value_history(self):
+        """
+        Return pandas.DataFrame of values of holdings converted to Blotter base
+        currency. Note that for each currency and timestamp for which
+        instruments are traded in, FX rates must be available for the given
+        timestamp in order to convert. E.g. if Blotter base ccy is USD, and an
+        instrument traded is in AUD, then AUDUSD or USDAUD must be available in
+        the prices data folder.
+
+        Returns
+        -------
+        A MultiIndex DataFrame indexed by timestamp (level 0) and instrument
+        (level 1), containing values of instrument values in equivalent base
+        currency given FX rates at the time.
+        """
+
+        # hlds_hist = self._holdings.get_holdings_history()
+        pass
+
+    def get_base_ccy_instr_pnl_history(self):
+        """
+        Convert historical instrument PnL to base currency PnL. Note that for
+        each currency and timestamp for which instruments PnL exists,
+        FX rates must be available for the given timestamp in order to convert.
+        E.g. if Blotter base ccy is USD, and an instrument traded is in AUD,
+        then AUDUSD or USDAUD must be available in the prices data folder.
+
+        Returns
+        -------
+        A MultiIndex DataFrame indexed by timestamp (level 0) and instrument
+        (level 1), containing values representing PnL converted to base
+        currency.
+        """
+
+        # also add a utils.map_to_generic() function for converting this
+        # DataFrame as well as get_transactions() output
+        pass
+
     def get_trades(self):
         """
-        Return quantity, multiplier, price, no tcost price, instrument,
-        currency, and FX conversion rate of executed trades in order of
-        execution.
+        Return instrument, quantity, multiplier, price, no tcost price,
+        commission, currency, and FX conversion rate of executed trades in
+        order of execution.
 
         The quantity is the number of instruments traded. The multiplier is any
         multiplier associated with futures contracts, this should be 1 for FX.
@@ -543,15 +581,17 @@ class Blotter():
         estimate of the price for execution without any transaction costs,
         provided by the user at the time of execution. This value will be NA if
         the user did not provide a value. The instrument is the name of the
-        instrument traded. The currency is the denomination of the instrument
-        and th FX conversion rate is the FX rate prevailing at the time to
-        convert through multiplication the instrument currency to the base
-        Blotter currency.
+        instrument traded. The commission is a fixed observable fee
+        associated with the trade. The currency is the denomination of the
+        instrument and th FX conversion rate is the FX rate prevailing at the
+        time to convert through multiplication the instrument currency to the
+        base Blotter currency.
 
         Returns
         -------
         A pandas.DataFrame indexed by timestamp with columns ['instrument',
-        'quantity', 'multiplier', 'price', 'ntc_price', 'ccy', 'fx_to_base'].
+        'quantity', 'multiplier', 'price', 'ntc_price', 'commission', 'ccy',
+        'fx_to_base'].
         Index has name 'timestamp'.
         """
 
@@ -572,7 +612,7 @@ class Blotter():
 
         trades.loc[:, "fx_to_base"] = rates
         order = ['instrument', 'quantity', 'multiplier', 'price', 'ntc_price',
-                 'ccy', 'fx_to_base']
+                 'commission', 'ccy', 'fx_to_base']
         trades = trades.loc[:, order]
         return trades
 
@@ -764,26 +804,6 @@ class Holdings():
         self._pnl_data = {}
         self._timestamp = pd.NaT
 
-    @staticmethod
-    def _make_empty_holding():
-        holding = namedtuple('holding', ['timestamp', 'trade', 'position',
-                                         'avg_pos_price', 'fees',
-                                         'avg_sell_price', 'total_sell',
-                                         'avg_buy_price', 'total_buy'])
-        return holding(array('d'), array('d'), array('d'), array('d'),
-                       array('d'), array('d'), array('d'), array('d'),
-                       array('d'))
-
-    @staticmethod
-    def _make_empty_qty():
-        cash = namedtuple('cash', ['timestamp', 'amount'])
-        return cash(array('d'), array('d'))
-
-    @staticmethod
-    def _make_empty_hist_pnl():
-        pnl_hist = namedtuple('hist_pnl', ['time', 'pnl'])
-        return pnl_hist([], [])
-
     @property
     def timestamp(self):
         """
@@ -925,7 +945,14 @@ class Holdings():
         if instrument in ccy_holdings:
             holdings = ccy_holdings[instrument]
         else:
-            holdings = self._make_empty_holding()
+            holding = namedtuple('holding',
+                                 ['timestamp', 'trade', 'position',
+                                  'avg_pos_price', 'fees',
+                                  'avg_sell_price', 'total_sell',
+                                  'avg_buy_price', 'total_buy'])
+            holdings = holding(array('d'), array('d'), array('d'), array('d'),
+                               array('d'), array('d'), array('d'), array('d'),
+                               array('d'))
             ccy_holdings[instrument] = holdings
 
         # deals with first access being non existent
@@ -1038,7 +1065,8 @@ class Holdings():
         if ccy in attr_dict:
             field = attr_dict[ccy]
         else:
-            field = self._make_empty_qty()
+            cash = namedtuple('cash', ['timestamp', 'amount'])
+            field = cash(array('d'), array('d'))
             attr_dict[ccy] = field
 
         prev_amnt = self._get_last(field, "amount", default=0)
@@ -1048,7 +1076,8 @@ class Holdings():
 
     def get_cash_balances(self):
         """
-        Return a pandas.Series of the cash balances for each currency
+        Return a pandas.Series of the cash balances for each currency where
+        index is the currency and the value is the amount
         """
 
         currencies = list(self._cash)
@@ -1147,7 +1176,8 @@ class Holdings():
                     if instr in ccy_pnl_datas:
                         instr_pnl_data = ccy_pnl_datas[instr]
                     else:
-                        instr_pnl_data = self._make_empty_hist_pnl()
+                        pnl_hist = namedtuple('hist_pnl', ['time', 'pnl'])
+                        instr_pnl_data = pnl_hist([], [])
                         ccy_pnl_datas[instr] = instr_pnl_data
                     instr_pnl_data.time.append(timestamp)
                     instr_pnl_data.pnl.append(instr_pnl)
