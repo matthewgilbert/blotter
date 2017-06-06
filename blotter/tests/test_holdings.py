@@ -322,40 +322,70 @@ class TestHoldings(unittest.TestCase):
     def test_get_no_cash(self):
         holder = blotter.Holdings()
         cashs = holder.get_cash_balances()
-        assert_series_equal(cashs, pd.Series())
+        cashs_exp = pd.DataFrame(columns=['ccy1', 'ccy2'])
+        assert_frame_equal(cashs, cashs_exp)
 
-    def test_get_USD_cash(self):
+    def test_get_one_pair_cash(self):
         holder = blotter.Holdings()
         ts = pd.Timestamp('2016-12-01T10:00:00')
-        holder.update_cash(ts, 'USD', 1000)
+        holder.update_cash(ts, 'USDCAD', 1000, -1320)
         cashs = holder.get_cash_balances()
-        assert_series_equal(cashs, pd.Series(1000.0, index=['USD']))
+        cashs_exp = pd.DataFrame([[1000, -1320]], index=['USDCAD'],
+                                 columns=['ccy1', 'ccy2'])
+        assert_frame_equal(cashs, cashs_exp)
 
-    def test_get_USD_and_CAD_cash(self):
+    def test_get_one_pair_two_updates_cash(self):
         holder = blotter.Holdings()
         ts = pd.Timestamp('2016-12-01T10:00:00')
-        holder.update_cash(ts, 'USD', 1000)
-        holder.update_cash(ts, 'CAD', 1000)
+        holder.update_cash(ts, 'USDCAD', 1000, -1320)
+        holder.update_cash(ts, 'USDCAD', 1000, -1320)
         cashs = holder.get_cash_balances()
-        s = pd.Series([1000.0, 1000.0], index=['CAD', 'USD'])
-        assert_series_equal(cashs, s)
+        cashs_exp = pd.DataFrame([[2 * 1000, -2 * 1320]], index=['USDCAD'],
+                                 columns=['ccy1', 'ccy2'])
+        assert_frame_equal(cashs, cashs_exp)
 
-    def test_get_USD_closed_cash(self):
+    def test_get_two_pair_cash(self):
         holder = blotter.Holdings()
         ts = pd.Timestamp('2016-12-01T10:00:00')
-        holder.update_cash(ts, 'USD', 1000)
+        holder.update_cash(ts, 'USDCAD', 1000, -1320)
+        holder.update_cash(ts, 'AUDUSD', 1000, -1250)
+        cashs = holder.get_cash_balances()
+        cashs_exp = pd.DataFrame([[1000, -1250], [1000, -1320]],
+                                 index=["AUDUSD", "USDCAD"],
+                                 columns=['ccy1', 'ccy2'])
+        assert_frame_equal(cashs, cashs_exp)
+
+    def test_get_pair_closed_cash(self):
+        holder = blotter.Holdings()
+        ts = pd.Timestamp('2016-12-01T10:00:00')
+        holder.update_cash(ts, 'USDCAD', 1000, -1320)
         ts = pd.Timestamp('2016-12-02T10:00:00')
-        holder.update_cash(ts, 'USD', -1000)
+        holder.update_cash(ts, 'USDCAD', -1000, 1320)
         cashs = holder.get_cash_balances()
-        s = pd.Series()
-        assert_series_equal(cashs, s)
+        cashs_exp = pd.DataFrame(columns=['ccy1', 'ccy2'])
+        assert_frame_equal(cashs, cashs_exp)
 
     def test_get_USD_interest(self):
         holder = blotter.Holdings()
         ts = pd.Timestamp('2016-12-01T10:00:00')
-        holder.charge_interest(ts, 'USD', 1000)
-        interest = holder._interest['USD'].amount[-1]
+        holder.charge_interest(ts, 'USDCAD', 1000)
+        interest = holder._fx_interest['USDCAD']
         self.assertEqual(interest, 1000)
+
+    def test_get_USD_interest_two_charges(self):
+        holder = blotter.Holdings()
+        ts = pd.Timestamp('2016-12-01T10:00:00')
+        holder.charge_interest(ts, 'USDCAD', 1000)
+        holder.charge_interest(ts, 'USDCAD', 1000)
+        interest = holder._fx_interest['USDCAD']
+        self.assertEqual(interest, 2000)
+
+    def test_get_USD_interest_0_charge(self):
+        holder = blotter.Holdings()
+        ts = pd.Timestamp('2016-12-01T10:00:00')
+        holder.charge_interest(ts, 'USDCAD', 0)
+        interest = holder._fx_interest
+        self.assertEqual(interest, {})
 
     # instrument level PnL tests
 
@@ -764,22 +794,23 @@ class TestHoldings(unittest.TestCase):
 
         ts_eod1 = pd.Timestamp('2016-12-01T16:00:00')
         prices = pd.Series([56, 111.00], index=['CLZ6', 'USDJPY'])
-        holder.charge_interest(ts_eod1, 'USD', 0.1)
-        holder.charge_interest(ts_eod1, 'JPY', -1)
+        jpy_intr = -1
+        holder.charge_interest(ts_eod1, 'USDJPY', jpy_intr)
         holder.get_instrument_pnl(ts_eod1, prices)
 
         ts_eod2 = pd.Timestamp('2016-12-02T16:00:00')
         holder.record_trade(ts_eod2, 'USDJPY', 112.0, -1000, 1, 0, 'JPY')
-        usd = ((112 - 110) * 1000 - 1) / 112.0
-        jpy = -((112 - 110) * 1000 - 1)
+
+        usd = ((112 - 110) * 1000 + jpy_intr) / 112.0
+        jpy = -((112 - 110) * 1000 + jpy_intr)
         holder.sweep_pnl(ts_eod2, 'USD', usd, 'JPY', jpy)
         prices = pd.Series([57], index=['CLZ6'])
         holder.get_instrument_pnl(ts_eod2, prices)
 
         pnls = holder.get_pnl_history()
 
-        closed = 0.1 - 2.5 + usd
-        pnl_usd = pd.DataFrame([[-1.4, -2.4, 1.0], [2 + closed, closed, 2.0]],
+        closed = -2.5 + usd
+        pnl_usd = pd.DataFrame([[-1.5, -2.5, 1.0], [2 + closed, closed, 2.0]],
                                index=[ts_eod1, ts_eod2], columns=PNL_COLS)
 
         pnl_jpy = pd.DataFrame([[999.0, -1.0, 1000.0], [0.0, 0.0, 0.0]],
@@ -794,7 +825,7 @@ class TestHoldings(unittest.TestCase):
         holder.sweep_pnl(ts_eod1, 'USD', 1.0, 'JPY', -1.0)
         holder.sweep_pnl(ts_eod1, 'USD', 1.0, 'JPY', -1.0)
         ts_eod2 = pd.Timestamp('2016-12-02T16:00:00')
-        holder.charge_interest(ts_eod2, 'USD', 0.1)
+        holder.charge_margin(ts_eod2, 'USD', 0.1)
 
         pnl_history = holder.get_pnl_history()
         jpy = pd.DataFrame([[-2.0, -2.0, 0]], index=[ts_eod1],
@@ -805,11 +836,11 @@ class TestHoldings(unittest.TestCase):
         pnl_history_exp = {"JPY": jpy, "USD": usd}
         self.assertDictFrameEqual(pnl_history, pnl_history_exp)
 
-    def test_pnl_hist_multi_interest_charge_same_time(self):
+    def test_pnl_hist_multi_margin_charge_same_time(self):
         holder = blotter.Holdings()
         ts_eod1 = pd.Timestamp('2016-12-01T16:00:00')
-        holder.charge_interest(ts_eod1, 'USD', 1.0)
-        holder.charge_interest(ts_eod1, 'USD', 5.0)
+        holder.charge_margin(ts_eod1, 'USD', 1.0)
+        holder.charge_margin(ts_eod1, 'USD', 5.0)
 
         ts_eod2 = pd.Timestamp('2016-12-02T16:00:00')
         holder.sweep_pnl(ts_eod2, 'USD', 1.0, 'JPY', -1)
@@ -942,15 +973,14 @@ class TestHoldings(unittest.TestCase):
         ccy = 'USD'
         holder.record_trade(ts, instr, price, quantity, mult, cmsion, ccy)
         ts = pd.Timestamp('2016-12-01T16:00:00')
-        # accrue interest on long AUD position, pay on short USD position
-        holder.charge_interest(ts, 'AUD', 55)
-        holder.charge_interest(ts, 'USD', -15)
+
+        holder.charge_interest(ts, 'AUDUSD', 30)
         new_price = pd.Series([0.81], index=[instr])
         pnl = holder.get_pnl(ts, new_price)
 
-        pnl_tot = pd.Series([55, 10000.0 - 2.50 - 15], index=['AUD', 'USD'])
-        pnl_closed = pd.Series([55, -2.5 - 15], index=['AUD', 'USD'])
-        pnl_open = pd.Series([0, 10000.0], index=['AUD', 'USD'])
+        pnl_tot = pd.Series([10000.0 - 2.50 + 30], index=['USD'])
+        pnl_closed = pd.Series([-2.5 + 30], index=['USD'])
+        pnl_open = pd.Series([10000.0], index=['USD'])
 
         exp_pnl = pd.concat([pnl_tot, pnl_closed, pnl_open], axis=1)
         exp_pnl.columns = PNL_COLS
@@ -996,19 +1026,19 @@ class TestHoldings(unittest.TestCase):
 
         ts_eod1 = pd.Timestamp('2016-12-01T16:00:00')
         prices = pd.Series([56, 111.00], index=['CLZ6', 'USDJPY'])
-        holder.charge_interest(ts_eod1, 'USD', 0.1)
-        holder.charge_interest(ts_eod1, 'JPY', -1)
+        jpy_intr = -1
+        holder.charge_interest(ts_eod1, 'USDJPY', jpy_intr)
         holder.get_instrument_pnl(ts_eod1, prices)
 
         ts_eod2 = pd.Timestamp('2016-12-02T16:00:00')
         holder.record_trade(ts_eod2, 'USDJPY', 112.0, -1000, 1, 0, 'JPY')
-        usd = ((112 - 110) * 1000 - 1) / 112.0
-        jpy = -((112 - 110) * 1000 - 1)
+        usd = ((112 - 110) * 1000 + jpy_intr) / 112.0
+        jpy = -((112 - 110) * 1000 + jpy_intr)
         holder.sweep_pnl(ts_eod2, 'USD', usd, 'JPY', jpy)
         prices = pd.Series([57], index=['CLZ6'])
         pnls = holder.get_pnl(ts_eod2, prices)
 
-        closed = 0.1 - 2.5 + usd
+        closed = -2.5 + usd
         pnls_exp = pd.DataFrame([[0.0, 0.0, 0.0], [2 + closed, closed, 2.0]],
                                 index=['JPY', 'USD'], columns=PNL_COLS)
 

@@ -28,7 +28,7 @@ class TestMarketData(unittest.TestCase):
         mdata = marketdata.MarketData(prices=self.prices, rates=self.rates)
 
         exp_keys = {"ESZ15": "", "AUDUSD": "", "EURUSD": "", "USDCAD": "",
-                    "SXMZ15": "", "APZ15": ""}.keys()
+                    "SXMZ15": "", "APZ15": "", "USDZAR": ""}.keys()
         self.assertEqual(mdata.prices.keys(), exp_keys)
         self.assertDictOfFrames(mdata.prices)
 

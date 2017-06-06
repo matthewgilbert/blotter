@@ -104,8 +104,15 @@ class TestBlotter(unittest.TestCase):
     def test_interest(self):
         blt = blotter.Blotter()
         data = {'timestamp': pd.Timestamp('2016-12-01T10:00:00'),
-                'ccy': 'USD', 'quantity': 1000}
+                'instrument': 'AUDUSD', 'quantity': 1000}
         ev = [blotter._Event('INTEREST', data)]
+        blt.dispatch_events(ev)
+
+    def test_margin(self):
+        blt = blotter.Blotter()
+        data = {'timestamp': pd.Timestamp('2016-12-01T10:00:00'),
+                'ccy': 'USD', 'quantity': 1000}
+        ev = [blotter._Event('MARGIN', data)]
         blt.dispatch_events(ev)
 
     def test_sweep(self):
@@ -119,6 +126,6 @@ class TestBlotter(unittest.TestCase):
     def test_cash(self):
         blt = blotter.Blotter()
         data = {'timestamp': pd.Timestamp('2016-12-01T10:00:00'),
-                'ccy': 'USD', 'quantity': 1000}
+                'instrument': 'AUDUSD', 'quantity1': 1000, 'quantity2': 1250}
         ev = [blotter._Event('CASH', data)]
         blt.dispatch_events(ev)

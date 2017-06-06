@@ -287,17 +287,16 @@ class Blotter():
                                        "price": price, "quantity": quantity,
                                        "multiplier": mltplier,
                                        "commission": com, "ccy": ccy})]
-        ev_cashs = []
+        cash = []
         if metadata.isFX:
             counter_quantity = -quantity * price
-            cash_counter = _Event("CASH", {"timestamp": timestamp, "ccy": ccy,
-                                           "quantity": counter_quantity})
-            base_ccy = instrument[:3]
-            cash_base = _Event("CASH", {"timestamp": timestamp,
-                                        "ccy": base_ccy, "quantity": quantity})
-            ev_cashs = [cash_counter, cash_base]
+            cash_ev = _Event("CASH", {"timestamp": timestamp,
+                                      "instrument": instrument,
+                                      "quantity1": quantity,
+                                      "quantity2": counter_quantity})
+            cash = [cash_ev]
 
-        events.extend(ev_cashs)
+        events.extend(cash)
         return events
 
     def automatic_events(self, timestamp):
@@ -392,12 +391,27 @@ class Blotter():
         if action == "INTEREST":
             cashs = self._holdings.get_cash_balances()
             if not cashs.empty:
-                rates = self._mdata.rates.loc[timestamp, cashs.index]
+                pair1s = cashs.index.str[:3]
+                pair2s = cashs.index.str[3:]
+                ccys = pair1s.union(pair2s)
+                # https://stackoverflow.com/a/44394451/1451311
+                rates = self._mdata.rates[ccys].loc[timestamp]
                 rates = self._adjusted_rates(timestamp, rates)
-                interests = cashs * rates
-                for ccy, qty in interests.iteritems():
+                interests1 = cashs.loc[:, "ccy1"] * rates.loc[pair1s].values
+                interests2 = cashs.loc[:, "ccy2"] * rates.loc[pair2s].values
+                interests = pd.concat([interests1, interests2], axis=1)
+                interests.loc[:, "fx1"] = pair1s
+                interests.loc[:, "fx2"] = pair2s
+
+                for vals in interests.itertuples():
+                    # interest is calculated for denomination of fx pair, e.g.
+                    # EURUSD pays interest in USD
+                    qty = vals.ccy2
+                    fx_rate = self._get_fx_conversion(timestamp, vals.fx1,
+                                                      vals.fx2)
+                    qty = qty + fx_rate * vals.ccy1
                     ev = _Event("INTEREST", {"timestamp": timestamp,
-                                             "ccy": ccy,
+                                             "instrument": vals.Index,
                                              "quantity": qty})
                     events.append(ev)
         elif action == "MARGIN":
@@ -411,9 +425,9 @@ class Blotter():
                 metadata = self._gnrc_meta[self._instr_map[instr]]
                 charge += mrate * metadata.margin * value
             if charge:
-                ev = _Event("INTEREST", {"timestamp": timestamp,
-                                         "ccy": self._base_ccy,
-                                         "quantity": charge})
+                ev = _Event("MARGIN", {"timestamp": timestamp,
+                                       "ccy": self._base_ccy,
+                                       "quantity": charge})
                 events.append(ev)
         elif action == "PNL":
             assets = self._holdings.get_assets()
@@ -477,6 +491,8 @@ class Blotter():
                 self._holdings.update_cash(**event.data)
             elif event.type == "INTEREST":
                 self._holdings.charge_interest(**event.data)
+            elif event.type == "MARGIN":
+                self._holdings.charge_margin(**event.data)
             elif event.type == "PNL":
                 self._holdings.get_instrument_pnl(**event.data)
             elif event.type == "PNL_SWEEP":
@@ -643,12 +659,15 @@ class Blotter():
         instr_nums = instr_nums.astype(int)
         return instr_nums
 
-    def _get_fx_conversion(self, timestamp, ccy):
+    def _get_fx_conversion(self, timestamp, ccy, desired_ccy=None):
         # return rate to multiply through be to convert given ccy
-        # to base ccy
-        ccy_pair1 = ccy + self._base_ccy
-        ccy_pair2 = self._base_ccy + ccy
-        if ccy == self._base_ccy:
+        # to desired_ccy
+        if not desired_ccy:
+            desired_ccy = self._base_ccy
+
+        ccy_pair1 = ccy + desired_ccy
+        ccy_pair2 = desired_ccy + ccy
+        if ccy == desired_ccy:
             conv_rate = 1
         elif ccy_pair1 in self._mdata.prices:
             conv_rate = self._mdata.prices[ccy_pair1].loc[timestamp]
@@ -799,7 +818,8 @@ class Holdings():
     def __init__(self):
         self._position_data_per_ccy = {}
         self._cash = {}
-        self._interest = {}
+        self._margin_interest = {}
+        self._fx_interest = {}
         self._pnl_sweep = {}
         self._pnl_data = {}
         self._timestamp = pd.NaT
@@ -913,7 +933,7 @@ class Holdings():
             the multipler is 50, therefore 1 ES contract with a price of 2081
             the notional value of the contract is 2081 x 50$.
         commission: float
-            total commission for the trade
+            total commission for the trade, in ccy of instrument
         ccy: str
             currency of instrument denomination
         """
@@ -996,25 +1016,82 @@ class Holdings():
             value = default
         return value
 
-    def update_cash(self, timestamp, ccy, quantity):
+    def update_cash(self, timestamp, instrument, quantity1, quantity2):
         """
-        Update the amount of cash in a certain type of currency, used for
-        charging interest on that balance.
+        Update the amount of cash for each currency in a currency pair, used
+        for charging interest on that balance.
 
         Parameters
         ----------
         timestamp: pandas.Timestamp
             Time of trade
-        ccy: str
-            currency of cash balance
-        quantity: float
-            Amount of cash
+        instrument: str
+            currency pair in the form XXXYYY, e.g. AUDUSD
+        quantity1: float
+            Amount of cash for the first pair of the trade, in the currency
+            of the first pair
+        quantity2: float
+            Amount of cash for the second pair of the trade, in the currency
+            of the second pair
         """
-        self._update_property(timestamp, ccy, quantity, '_cash')
 
-    def charge_interest(self, timestamp, ccy, quantity):
+        if self._timestamp > timestamp:
+            raise ValueError('Operations on Holdings must follow in time'
+                             ' sequential order')
+
+        cash = self._cash
+        if instrument in cash:
+            old_qty = cash[instrument]
+            new_qty = (old_qty[0] + quantity1, old_qty[1] + quantity2)
+        else:
+            new_qty = (quantity1, quantity2)
+
+        if new_qty == (0, 0):
+            cash.pop(instrument)
+        else:
+            cash[instrument] = new_qty
+        self._timestamp = timestamp
+
+    def charge_interest(self, timestamp, instrument, quantity):
         """
-        Update the amount of interest charged in the account of a currency.
+        Update the amount of interest associated with an instrument.
+
+        Parameters
+        ----------
+        timestamp: pandas.Timestamp
+            Time of trade
+        instrument: str
+            name of instrument which pays interest
+        quantity: float
+            Amount of interest paid, in the currency of the instrument
+            denomination.
+        """
+
+        if self._timestamp > timestamp:
+            raise ValueError('Operations on Holdings must follow in time'
+                             ' sequential order')
+
+        if np.isnan(quantity):
+            raise ValueError("Cannot charge nan quantity of interest")
+        quantity = float(quantity)
+
+        fx_int = self._fx_interest
+        if instrument in fx_int:
+            old_qty = fx_int[instrument]
+            new_qty = old_qty + quantity
+        else:
+            new_qty = quantity
+
+        if new_qty == 0:
+            fx_int.pop(instrument, None)
+        else:
+            fx_int[instrument] = new_qty
+        self._timestamp = timestamp
+
+    def charge_margin(self, timestamp, ccy, quantity):
+        """
+        Update the amount of interest charged in the account of a currency
+        associated with margin.
 
         Parameters
         ----------
@@ -1025,7 +1102,11 @@ class Holdings():
         quantity: float
             Amount of interest
         """
-        self._update_property(timestamp, ccy, quantity, '_interest')
+
+        if np.isnan(quantity):
+            raise ValueError("Cannot charge nan quantity of interest")
+        quantity = float(quantity)
+        self._update_property(timestamp, ccy, quantity, '_margin_interest')
 
     def sweep_pnl(self, timestamp, ccy1, quantity1, ccy2, quantity2):
         """
@@ -1076,16 +1157,24 @@ class Holdings():
 
     def get_cash_balances(self):
         """
-        Return a pandas.Series of the cash balances for each currency where
-        index is the currency and the value is the amount
+        Return a pandas.DataFrame of the cash balances for each currency where
+        index is the currency pair, columns is ['ccy1', 'ccy2'] and the values
+        are the respective amounts, e.g.timestamp
+
+                    ccy1  ccy2
+            AUDUSD   100    80
+            USDCAD   100   132
+
+        Returns
+        -------
+        pandas.DataFrame
         """
 
         currencies = list(self._cash)
         currencies.sort()
-        cashs = pd.Series(index=currencies)
-        for ccy in self._cash:
-            cashs.loc[ccy] = self._cash[ccy].amount[-1]
-        cashs = cashs.loc[cashs != 0]
+        cashs = pd.DataFrame(index=currencies, columns=['ccy1', 'ccy2'])
+        for instr in self._cash:
+            cashs.loc[instr, :] = self._cash[instr]
         return cashs
 
     def get_instrument_pnl(self, timestamp, prices=None, cache=True):
@@ -1129,6 +1218,7 @@ class Holdings():
             asts.sort()
             pos = pd.Series(index=asts)
             fees = pd.Series(index=asts)
+            interest = pd.Series(index=asts)
             avg_buy_price = pd.Series(index=asts)
             tot_buy = pd.Series(index=asts)
             avg_sell_price = pd.Series(index=asts)
@@ -1138,6 +1228,7 @@ class Holdings():
                 ast_dat = ccy_pos_data[asst]
                 pos.loc[asst] = self._get_last(ast_dat, 'position')
                 fees.loc[asst] = self._get_last(ast_dat, 'fees')
+                interest.loc[asst] = self._fx_interest.get(asst, 0)
                 avg_buy_price[asst] = self._get_last(ast_dat, 'avg_buy_price')
                 tot_buy[asst] = self._get_last(ast_dat, 'total_buy')
                 avg_sell_price[asst] = self._get_last(ast_dat,
@@ -1157,7 +1248,7 @@ class Holdings():
                 pos_value = pos.loc[asts_not0].mul(prices_ccy)
                 ccy_open_pnl = pos.loc[asts_not0].mul(prices_ccy - avg_pos_price.loc[asts_not0])  # NOQA
 
-            ccy_pnl = tot_sell * avg_sell_price + pos_value - avg_buy_price * tot_buy - fees  # NOQA
+            ccy_pnl = tot_sell * avg_sell_price + pos_value - avg_buy_price * tot_buy - fees + interest  # NOQA
             ccy_closed_pnl = ccy_pnl - ccy_open_pnl
             df_pnl = pd.concat([ccy_pnl, ccy_closed_pnl, ccy_open_pnl], axis=1)
             df_pnl.columns = ['pnl', 'closed pnl', 'open pnl']
@@ -1212,12 +1303,13 @@ class Holdings():
 
         # allows PnL calculation without having to pass dummy series of prices
         # when all positions are closed
+
         if prices is None:
             prices = pd.Series()
 
         pnls = self.get_instrument_pnl(timestamp, prices, cache)
 
-        ccys = list(set().union(pnls, self._interest, self._pnl_sweep))
+        ccys = list(set().union(pnls, self._margin_interest, self._pnl_sweep))
         ccys.sort()
         ccy_pnls = pd.DataFrame(index=ccys,
                                 columns=['pnl', 'closed pnl', 'open pnl'],
@@ -1228,8 +1320,8 @@ class Holdings():
             except KeyError:
                 pnl_sums = pd.Series(0, index=['pnl', 'closed pnl',
                                                'open pnl'])
-            if ccy in self._interest:
-                interest = self._get_last(self._interest[ccy], 'amount')
+            if ccy in self._margin_interest:
+                interest = self._get_last(self._margin_interest[ccy], 'amount')
             else:
                 interest = 0
             if ccy in self._pnl_sweep:
@@ -1258,7 +1350,8 @@ class Holdings():
         """
 
         ccy_pnls = self.get_instrument_pnl_history()
-        ccys = list(set().union(ccy_pnls, self._interest, self._pnl_sweep))
+        ccys = list(set().union(ccy_pnls, self._margin_interest,
+                                self._pnl_sweep))
         ccys.sort()
         hist_pnls = dict()
         PNL_COLS = ['pnl', 'closed pnl', 'open pnl']
@@ -1285,11 +1378,12 @@ class Holdings():
                 instr_pnl_sum = pd.DataFrame([], columns=PNL_COLS)
 
             try:
-                interest_data = self._interest[ccy]
+                interest_data = self._margin_interest[ccy]
                 dts = self._to_timestamp(interest_data.timestamp)
                 interest = pd.DataFrame(0, index=dts, columns=PNL_COLS)
                 interest.loc[:, 'closed pnl'] = interest_data.amount
                 interest.loc[:, 'pnl'] = interest_data.amount
+                # account for multiple entries with the same timestamp
                 interest = interest.groupby(interest.index).last()
             except KeyError:
                 interest = pd.DataFrame([], columns=PNL_COLS)

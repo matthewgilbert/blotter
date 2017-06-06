@@ -122,7 +122,7 @@ class TestBlotter(unittest.TestCase):
         ts = pd.Timestamp('2015-08-04T00:00:00')
         qty = 1
         price = 0
-        blt.define_generic("SXM", "ZAR", 0.1, 1, 2.5)
+        blt.define_generic("SXM", "CLP", 0.1, 1, 2.5)
         blt.map_instrument("SXM", "SXMZ15")
         blt._trade(ts, 'SXMZ15', qty, price)
 
@@ -325,26 +325,39 @@ class TestBlotter(unittest.TestCase):
         blt = self.make_blotter()
         blt.connect_market_data()
         ts = pd.Timestamp('2015-08-03T00:00:00')
-        blt._holdings.update_cash(ts, "AUD", 1000000)
-        blt._holdings.update_cash(ts, "JPY", 1000000)
+        blt._holdings.update_cash(ts, "AUDUSD", 1000000, -1000000)
         ts = pd.Timestamp('2015-08-04T00:00:00')
         evs = blt.create_events(ts, "INTEREST")
         irates = pd.read_csv(self.rates, index_col=0, parse_dates=True)
+        aud_path = os.path.join(self.prices, 'AUDUSD.csv')
+        fx = pd.read_csv(aud_path, index_col=0, parse_dates=True)
         aud_int = irates.loc[ts, "AUD"] / 365 * 1000000
-        jpy_int = irates.loc[ts, "JPY"] / 365 * 1000000
+        usd_int = irates.loc[ts, "USD"] / 365 * (-1000000)
 
-        evs_exp = [blotter._Event("INTEREST", {"timestamp": ts, "ccy": "AUD",
-                                               "quantity": aud_int}),
-                   blotter._Event("INTEREST", {"timestamp": ts, "ccy": "JPY",
-                                               "quantity": jpy_int})]
+        total_int = usd_int + aud_int * float(fx.loc[ts])
+
+        evs_exp = [blotter._Event("INTEREST", {"timestamp": ts,
+                                               "instrument": "AUDUSD",
+                                               "quantity": total_int})]
         self.assertEventsEqual(evs, evs_exp)
 
-    def test_create_interest_event_no_rate(self):
+    def test_create_interest_event_no_interest_rate(self):
         blt = self.make_blotter()
         blt.connect_market_data()
         ts = pd.Timestamp('2015-08-03T00:00:00')
-        # No ZAR data
-        blt._holdings.update_cash(ts, "ZAR", 1000000)
+        blt._holdings.update_cash(ts, "USDZAR", 1000, -1000)
+        ts = pd.Timestamp('2015-08-04T00:00:00')
+
+        def get_interest():
+            return blt.create_events(ts, "INTEREST")
+
+        self.assertRaises(KeyError, get_interest)
+
+    def test_create_interest_event_no_fx_rate(self):
+        blt = self.make_blotter()
+        blt.connect_market_data()
+        ts = pd.Timestamp('2015-08-03T00:00:00')
+        blt._holdings.update_cash(ts, "AUDCAD", 1000, -1000)
         ts = pd.Timestamp('2015-08-04T00:00:00')
 
         def get_interest():
@@ -356,18 +369,21 @@ class TestBlotter(unittest.TestCase):
         blt = self.make_blotter()
         blt.connect_market_data()
         ts = pd.Timestamp('2015-08-06T00:00:00')
-        blt._holdings.update_cash(ts, "AUD", 1000000)
-        blt._holdings.update_cash(ts, "JPY", 1000000)
+        blt._holdings.update_cash(ts, "AUDUSD", 1000000, -1000000)
         ts = pd.Timestamp('2015-08-07T00:00:00')
         evs = blt.create_events(ts, "INTEREST")
         irates = pd.read_csv(self.rates, index_col=0, parse_dates=True)
         aud_int = irates.loc[ts, "AUD"] / 365 * 3 * 1000000
-        jpy_int = irates.loc[ts, "JPY"] / 365 * 3 * 1000000
+        usd_int = irates.loc[ts, "USD"] / 365 * 3 * (-1000000)
 
-        evs_exp = [blotter._Event("INTEREST", {"timestamp": ts, "ccy": "AUD",
-                                               "quantity": aud_int}),
-                   blotter._Event("INTEREST", {"timestamp": ts, "ccy": "JPY",
-                                               "quantity": jpy_int})]
+        aud_path = os.path.join(self.prices, 'AUDUSD.csv')
+        fx = pd.read_csv(aud_path, index_col=0, parse_dates=True)
+
+        tot_int = usd_int + aud_int * float(fx.loc[ts])
+
+        evs_exp = [blotter._Event("INTEREST", {"timestamp": ts,
+                                               "instrument": "AUDUSD",
+                                               "quantity": tot_int})]
         self.assertEventsEqual(evs, evs_exp)
 
     def test_create_margin_event(self):
@@ -399,8 +415,8 @@ class TestBlotter(unittest.TestCase):
         sxm_notional = sxm.loc[ts].values * qty * 0.1 / usdcad.loc[ts].values
         notnl = float(es_notional + sxm_notional)
         quantity = notnl * (rates.loc[ts, "USD"] + 0.015) / 365
-        ev_exp = [blotter._Event("INTEREST", {"timestamp": ts, "ccy": "USD",
-                                              "quantity": quantity})]
+        ev_exp = [blotter._Event("MARGIN", {"timestamp": ts, "ccy": "USD",
+                                            "quantity": quantity})]
         self.assertEventsEqual(ev, ev_exp)
 
     def test_create_short_margin_event(self):
@@ -423,8 +439,8 @@ class TestBlotter(unittest.TestCase):
 
         es_notional = float(es.loc[ts].values * np.abs(qty) * 0.05)
         quantity = es_notional * (rates.loc[ts, "USD"] + 0.015) / 365
-        ev_exp = [blotter._Event("INTEREST", {"timestamp": ts, "ccy": "USD",
-                                              "quantity": quantity})]
+        ev_exp = [blotter._Event("MARGIN", {"timestamp": ts, "ccy": "USD",
+                                            "quantity": quantity})]
         self.assertEventsEqual(ev, ev_exp)
 
     def test_create_pnl_event(self):
@@ -558,10 +574,10 @@ class TestBlotter(unittest.TestCase):
                                            "ccy": "USD", "price": 0.80,
                                            "quantity": 1000, "multiplier": 1,
                                            "commission": 0}),
-                  blotter._Event("CASH", {"timestamp": ts, "ccy": "USD",
-                                          "quantity": -1000 * 0.80}),
-                  blotter._Event("CASH", {"timestamp": ts, "ccy": "AUD",
-                                          "quantity": 1000})]
+                  blotter._Event("CASH", {"timestamp": ts,
+                                          "instrument": "AUDUSD",
+                                          "quantity1": 1000,
+                                          "quantity2": -1000 * 0.80})]
         self.assertEventsEqual(evs, ev_exp)
 
     def test_create_trade_fx_USDCAD(self):
@@ -577,10 +593,10 @@ class TestBlotter(unittest.TestCase):
                                            "ccy": "CAD", "price": 1.31,
                                            "quantity": 1000, "multiplier": 1,
                                            "commission": 0}),
-                  blotter._Event("CASH", {"timestamp": ts, "ccy": "CAD",
-                                          "quantity": -1000 * 1.31}),
-                  blotter._Event("CASH", {"timestamp": ts, "ccy": "USD",
-                                          "quantity": 1000})]
+                  blotter._Event("CASH", {"timestamp": ts,
+                                          "instrument": "USDCAD",
+                                          "quantity1": 1000,
+                                          "quantity2": -1000 * 1.31})]
         self.assertEventsEqual(evs, ev_exp)
 
     def test_create_trade_future(self):
@@ -667,7 +683,7 @@ class TestBlotter(unittest.TestCase):
         for ev in blt.event_log:
             ev_types.append(ev.split("|")[0])
 
-        ev_types_exp = ["TRADE", "INTEREST", "PNL"]
+        ev_types_exp = ["TRADE", "MARGIN", "PNL"]
         self.assertEqual(ev_types, ev_types_exp)
 
     def test_automatic_events_fx_type_creation(self):
@@ -677,19 +693,18 @@ class TestBlotter(unittest.TestCase):
                               sweep_time=pd.Timedelta(0, unit='h'))
         blt.connect_market_data()
 
-        blt.define_generic("AUDUSD", "USD", 0, 1, 2.50, isFX=True)
-        blt.map_instrument("AUDUSD", "AUDUSD")
+        blt.define_generic("USDCAD", "CAD", 0, 1, 2.50, isFX=True)
+        blt.map_instrument("USDCAD", "USDCAD")
         ts = pd.Timestamp('2015-08-04T10:00:00')
         number_instr = 1000000
-        blt._trade(ts, "AUDUSD", number_instr, 0.80)
+        blt._trade(ts, "USDCAD", number_instr, 0.80)
         blt.automatic_events(pd.Timestamp('2015-08-05T10:00:00'))
 
         ev_types = []
         for ev in blt.event_log:
             ev_types.append(ev.split("|")[0])
 
-        ev_types_exp = ["TRADE", "CASH", "CASH", "INTEREST", "INTEREST",
-                        "PNL", "PNL_SWEEP"]
+        ev_types_exp = ["TRADE", "CASH", "INTEREST", "PNL", "PNL_SWEEP"]
         self.assertEqual(ev_types, ev_types_exp)
 
     def test_automatic_events_closed_pnl_mark(self):
