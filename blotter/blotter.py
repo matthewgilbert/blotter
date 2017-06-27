@@ -430,15 +430,18 @@ class Blotter():
                                        "quantity": charge})
                 events.append(ev)
         elif action == "PNL":
-            assets = self._holdings.get_assets()
+            assets, _ = self._holdings.get_assets()
             if assets:
                 prices = self._get_prices(timestamp, assets)
             else:
                 prices = pd.Series([])
             ev = _Event("PNL", {"timestamp": timestamp, "prices": prices})
             events.append(ev)
+        elif action == "MARK":
+            # TODO this should replace PNL
+            pass
         elif action == "PNL_SWEEP":
-            assets = self._holdings.get_assets()
+            assets, _ = self._holdings.get_assets()
             if assets:
                 prices = self._get_prices(timestamp, assets)
             else:
@@ -520,8 +523,9 @@ class Blotter():
 
         Parameters
         ----------
-        timestamp: pandas.Timestamp which corresponds to the time for
-        marking to market blotter holdings
+        timestamp: pandas.Timestamp
+            timestamp which corresponds to the time for marking to market
+            blotter holdings
 
         Returns
         -------
@@ -563,8 +567,26 @@ class Blotter():
         currency given FX rates at the time.
         """
 
-        # hlds_hist = self._holdings.get_holdings_history()
-        pass
+        # TODO this needs prices
+
+        hlds_hist = self._holdings.get_holdings_history()
+        all_base = []
+        for ccy in hlds_hist:
+            instr_ccy = hlds_hist[ccy]
+            for instr in instr_ccy:
+                hlds = instr_ccy[instr]
+                fx_conv = self._get_fx_conversions(hlds.index, ccy)
+                hlds_base = hlds * fx_conv
+                hlds_base.index = pd.MultiIndex.from_product(hlds_base.index,
+                                                             [instr])
+                all_base.append(hlds_base)
+
+        if all_base:
+            all_base = pd.concat(all_base, axis=0)
+            all_base = all_base.sort_index()
+        else:
+            all_base = pd.DataFrame()
+        return all_base
 
     def get_base_ccy_instr_pnl_history(self):
         """
@@ -668,7 +690,7 @@ class Blotter():
         ccy_pair1 = ccy + desired_ccy
         ccy_pair2 = desired_ccy + ccy
         if ccy == desired_ccy:
-            conv_rate = 1
+            conv_rate = 1.0
         elif ccy_pair1 in self._mdata.prices:
             conv_rate = self._mdata.prices[ccy_pair1].loc[timestamp]
             conv_rate = conv_rate.values
@@ -679,6 +701,33 @@ class Blotter():
             raise(KeyError(ccy_pair1, ccy_pair2))
 
         return float(conv_rate)
+
+    def _get_fx_conversions(self, timestamps, ccy, desired_ccy=None):
+        # return rate to multiply through be to convert given ccy
+        # to desired_ccy
+        if not desired_ccy:
+            desired_ccy = self._base_ccy
+
+        ccy_pair1 = ccy + desired_ccy
+        ccy_pair2 = desired_ccy + ccy
+        if ccy == desired_ccy:
+            conv_rate = 1.0
+        elif ccy_pair1 in self._mdata.prices:
+            diffs = set(timestamps).difference(self._mdata.prices[ccy_pair1].index)  # NOQA
+            if diffs:
+                raise KeyError(diffs)
+            conv_rate = self._mdata.prices[ccy_pair1].loc[timestamps]
+            conv_rate = conv_rate.values
+        elif ccy_pair2 in self._mdata.prices:
+            diffs = set(timestamps).difference(self._mdata.prices[ccy_pair2].index)  # NOQA
+            if diffs:
+                raise KeyError(diffs)
+            conv_rate = 1 / self._mdata.prices[ccy_pair2].loc[timestamps]
+            conv_rate = conv_rate.values
+        else:
+            raise(KeyError(ccy_pair1, ccy_pair2))
+
+        return conv_rate
 
     def write_log(self, fp):
         """
@@ -894,23 +943,29 @@ class Holdings():
 
     def get_assets(self):
         """
-        Get the names of instruments held.
+        Get the names of instruments held and the currencies they are
+        denominated in.
 
         Returns
         -------
-        list
-            Sorted list of strings of current assets which have holdings
+        tuple
+            Tuple of list of strings of current assets which have holdings and
+            a list of the currencies of these assets
         """
         pos_data = self._position_data_per_ccy
         asts = []
+        ccys = []
         for ccy in pos_data:
             ccy_pos_data = pos_data[ccy]
             for asst in ccy_pos_data:
                 if ccy_pos_data[asst].position[-1] != 0:
                     asts.append(asst)
+                    ccys.append(ccy)
 
-        asts.sort()
-        return asts
+        idx = np.argsort(asts)
+        asts = list(np.array(asts)[idx])
+        ccys = list(np.array(ccys)[idx])
+        return (asts, ccys)
 
     def record_trade(self, timestamp, instrument, price, quantity, multiplier,
                      commission, ccy):

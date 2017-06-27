@@ -55,7 +55,7 @@ class TestHoldings(unittest.TestCase):
     def test_empty_asts(self):
         holder = blotter.Holdings()
         asts = holder.get_assets()
-        self.assertEqual(asts, [])
+        self.assertEqual(asts, ([], []))
 
     def test_empty_holdings(self):
         holder = blotter.Holdings()
@@ -87,7 +87,7 @@ class TestHoldings(unittest.TestCase):
         pos = holder.get_holdings()
         pos_hist = holder.get_holdings_history()
 
-        self.assertEqual(asts, ['CLZ6'])
+        self.assertEqual(asts, (['CLZ6'], ['USD']))
         self.assertDictSeriesEqual(pos,
                                    {"USD": pd.Series(1.0, index=['CLZ6'])})
         exp_pos_hst = {"USD": {"CLZ6": pd.Series(1.0, index=[ts])}}
@@ -108,7 +108,7 @@ class TestHoldings(unittest.TestCase):
         pos = holder.get_holdings()
         pos_hist = holder.get_holdings_history()
 
-        self.assertEqual(asts, ['CLZ6'])
+        self.assertEqual(asts, (['CLZ6'], ['USD']))
         self.assertDictSeriesEqual(pos,
                                    {"USD": pd.Series(2.0, index=['CLZ6'])})
         exp_pos_hst = {"USD": {"CLZ6": pd.Series(2.0, index=[ts])}}
@@ -211,7 +211,7 @@ class TestHoldings(unittest.TestCase):
         pos = holder.get_holdings()
         pos_hst = holder.get_holdings_history()
 
-        self.assertEqual(asts, ['CLZ6'])
+        self.assertEqual(asts, (['CLZ6'], ['USD']))
 
         self.assertDictSeriesEqual(pos,
                                    {"USD": pd.Series(8.0, index=['CLZ6'])})
@@ -238,7 +238,7 @@ class TestHoldings(unittest.TestCase):
         pos = holder.get_holdings()
         pos_hst = holder.get_holdings_history()
 
-        self.assertEqual(asts, [])
+        self.assertEqual(asts, ([], []))
         self.assertDictSeriesEqual(pos, {})
         exp_pos_hst = {"USD": {"CLZ6": pd.Series([1.0, 0.0], index=[ts, ts2])}}
         self.assertNestedDictSeriesEqual(pos_hst, exp_pos_hst)
@@ -263,7 +263,7 @@ class TestHoldings(unittest.TestCase):
         pos = holder.get_holdings()
         pos_hst = holder.get_holdings_history()
 
-        self.assertEqual(asts, ['CLZ6', 'COZ6'])
+        self.assertEqual(asts, (['CLZ6', 'COZ6'], ['USD', 'USD']))
         s = pd.Series([1.0, 7.0], index=['CLZ6', 'COZ6'])
         self.assertDictSeriesEqual(pos, {"USD": s})
         exp_pos_hst = {'USD': {'CLZ6': pd.Series([1.0], index=[ts]),
@@ -291,7 +291,7 @@ class TestHoldings(unittest.TestCase):
         pos = holder.get_holdings()
         pos_hst = holder.get_holdings_history()
 
-        self.assertEqual(asts, ['CLZ6', 'COZ6'])
+        self.assertEqual(asts, (['CLZ6', 'COZ6'], ['USD', 'CAD']))
         s1 = pd.Series([1.0], index=['CLZ6'])
         s2 = pd.Series([7.0], index=['COZ6'])
         self.assertDictSeriesEqual(pos, {"USD": s1, "CAD": s2})

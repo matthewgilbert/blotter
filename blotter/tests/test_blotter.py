@@ -196,6 +196,12 @@ class TestBlotter(unittest.TestCase):
         hlds_exp = pd.Series([795.95 / 1.3183], index=['SXMZ15'])
         assert_series_equal(hlds, hlds_exp)
 
+    def test_get_holdings_hist_empty(self):
+        blt = self.make_blotter()
+        blt.connect_market_data()
+        hlds = blt.get_holdings_value_history()
+        assert_frame_equal(hlds, pd.DataFrame())
+
     def test_get_instruments_empty(self):
         blt = self.make_blotter()
         blt.connect_market_data()

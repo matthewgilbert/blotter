@@ -164,3 +164,9 @@ Holdings.
 .. ipython:: python
 
     blt.event_log[-10:]
+
+You can also get a DataFrame of trades using
+
+.. ipython:: python
+
+    blt.get_trades()
