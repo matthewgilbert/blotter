@@ -29,7 +29,7 @@ calculations and PnL sweeps or manage manually
 You can pip install this package from github, i.e.
 
 ```
-pip install git+git://github.com/matthewgilbert/pdblp.git@master
+pip install git+git://github.com/matthewgilbert/blotter.git@master
 ```
 
 the package is not yet available on Pypi.
