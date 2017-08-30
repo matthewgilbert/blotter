@@ -764,7 +764,7 @@ class TestBlotter(unittest.TestCase):
         blt.map_instrument('CL', 'CLZ16')
 
         blt.define_generic(**{'generic': 'USDCAD', 'ccy': 'CAD',
-                              'margin': 0,  'multiplier': 1,
+                              'margin': 0, 'multiplier': 1,
                               'commission': 2.5, 'isFX': True})
         blt.map_instrument('USDCAD', 'USDCAD')
 
@@ -793,7 +793,7 @@ class TestBlotter(unittest.TestCase):
         blt.map_instrument('CL', 'CLZ16')
 
         blt.define_generic(**{'generic': 'USDCAD', 'ccy': 'CAD',
-                              'margin': 0,  'multiplier': 1,
+                              'margin': 0, 'multiplier': 1,
                               'commission': 2.5, 'isFX': True})
         blt.map_instrument('USDCAD', 'USDCAD')
 

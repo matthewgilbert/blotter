@@ -394,7 +394,6 @@ class Blotter():
                 pair1s = cashs.index.str[:3]
                 pair2s = cashs.index.str[3:]
                 ccys = pair1s.union(pair2s)
-                # https://stackoverflow.com/a/44394451/1451311
                 rates = self._mdata.rates[ccys].loc[timestamp]
                 rates = self._adjusted_rates(timestamp, rates)
                 interests1 = cashs.loc[:, "ccy1"] * rates.loc[pair1s].values
@@ -438,8 +437,12 @@ class Blotter():
             ev = _Event("PNL", {"timestamp": timestamp, "prices": prices})
             events.append(ev)
         elif action == "MARK":
-            # TODO this should replace PNL
-            pass
+            assets, ccys = self._holdings.get_assets()
+            if assets:
+                prices = self._get_prices(timestamp, assets)
+                conv_rates = []
+                for ccy in set(ccys):
+                    conv_rates.append(self._get_fx_conversion(timestamp, ccy))
         elif action == "PNL_SWEEP":
             assets, _ = self._holdings.get_assets()
             if assets:
